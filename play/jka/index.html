@@ -1,0 +1,103 @@
+<!doctype html>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<title>Jedi Knight: Jedi Academy — idTech3-web</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui,sans-serif}
+  #wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{outline:none;display:block;background:#000;image-rendering:auto}
+  #load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+        justify-content:center;color:#c9b37e;background:#0a0806;transition:opacity .6s;z-index:10}
+  #load h1{font-size:20px;letter-spacing:3px;text-transform:uppercase;color:#7a1fa0;margin:0 0 14px}
+  #bar{width:280px;height:4px;background:#221a12;border-radius:2px;overflow:hidden}
+  #bar>i{display:block;height:100%;width:0;background:#7a1fa0;transition:width .2s}
+  #msg{margin-top:10px;font-size:12px;color:#7a6a52;min-height:16px}
+</style>
+
+<div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="load">
+  <h1>Jedi Knight: Jedi Academy</h1>
+  <div id="bar"><i></i></div>
+  <div id="msg">loading engine…</div>
+</div>
+
+<script>
+const bar = document.querySelector('#bar>i'), msg = document.getElementById('msg'), load = document.getElementById('load');
+let booted = false;
+function setLoading(t){
+  if (!t){ return; }
+  const m = /([\d.]+)\s*\/\s*([\d.]+)/.exec(t);      // "downloading (x/y)"
+  if (m){ bar.style.width = (100*parseFloat(m[1])/parseFloat(m[2])) + '%'; }
+  msg.textContent = t;
+}
+function hideLoading(){ load.style.opacity = 0; setTimeout(()=>load.remove(), 700); }
+
+// Data is bring-your-own: paks are staged into the gamedir below and listed here.
+// Nothing is committed.
+//
+// The free JKA demo ships GameData/Demo/assets0.pk3 and it belongs in demo/, NOT
+// base/. With no retail productid.txt present, files_pc.cpp's FS_SetRestrictions()
+// sets fs_restrict=1, prints "Running in restricted demo mode", and restarts the
+// filesystem with FS_Startup(DEMOGAME) — so the search path becomes /jka/demo.
+//
+// Note DEMOGAME is lowercase "demo" while the installer writes "Demo": harmless on
+// a case-insensitive host FS, fatal on the (case-sensitive) emscripten FS, so we
+// stage it lowercase.
+//
+// Unlike JK2, no source change is needed here: this pak checksums to exactly
+// DEMO_PAK_CHECKSUM (4102795916), i.e. it IS the pak this source expects.
+window.__JKA_GAMEDIR = 'demo';
+window.__JKA_PAKS = (window.__JKA_PAKS || ['assets0.pk3']);
+// Optional launch commands via ?args=.
+var __argParam = new URLSearchParams(location.search).get('args');
+
+var Module = {
+  canvas: document.getElementById('canvas'),
+  arguments: __argParam ? __argParam.split(/\s+/).filter(Boolean) : [],
+  print:    (t)=>console.log(t),
+  printErr: (t)=>console.warn(t),
+  setStatus: setLoading,
+  onFatal: (t)=>{ msg.style.color='#c33'; msg.textContent = 'FATAL: '+t; },
+  preRun: [function(){
+    // Persist configs + savegames in IndexedDB at /userdata (idTech3 fs_homepath).
+    ENV.HOME = '/userdata';
+    FS.mkdir('/userdata');
+    FS.mount(IDBFS, {}, '/userdata');
+    FS.mkdir('/jka');
+    FS.mkdir('/jka/base');            // BASEGAME
+    FS.mkdir('/jka/demo');            // DEMOGAME — where the free demo's pak lives
+    addRunDependency('idbfs-restore');
+    FS.syncfs(true, function(err){
+      if (err) console.warn('IDBFS restore failed', err);
+      removeRunDependency('idbfs-restore');
+    });
+    // Mount staged paks + the SP game side module. JK2/JKA SP link cgame+ui
+    // into the exe, so the game DLL is the only separate module.
+    var __gd = window.__JKA_GAMEDIR || 'base';
+    var __files = (window.__JKA_PAKS || []).map(function(n){ return [__gd+'/'+n, '/jka/'+__gd+'/'+n]; })
+      .concat([['qagame.wasm','/jka/qagame.wasm']]);
+    __files.forEach(function(pair){
+      var url = pair[0], dst = pair[1];
+      addRunDependency('pre:'+url);
+      setLoading('downloading '+url);
+      fetch(url).then(async function(r){
+        if (!r.ok) throw new Error(url+': HTTP '+r.status);
+        FS.writeFile(dst, new Uint8Array(await r.arrayBuffer()));
+        removeRunDependency('pre:'+url);
+      }).catch(function(e){ console.warn('preload failed:', e.message); removeRunDependency('pre:'+url); });
+    });
+  }],
+  onRuntimeInitialized: function(){
+    // Engine drives its own frame loop via emscripten_set_main_loop.
+    booted = true;
+    setTimeout(hideLoading, 300);
+  }
+};
+
+// Flush persistence periodically and on tab hide/close.
+function sync(){ try { FS.syncfs(false, function(){}); } catch(e){} }
+setInterval(()=>{ if (booted) sync(); }, 15000);
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden) sync(); });
+window.addEventListener('pagehide', sync);
+</script>
+<script src="jka.js"></script>

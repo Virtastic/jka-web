@@ -1,0 +1,39 @@
+# Build outputs
+build-*/
+*.o
+*.a
+*.wasm
+*.data
+*.br
+
+# Emscripten-generated JS harnesses live in play/ but are build products
+play/*/*.js
+play/*/*.wasm
+play/*/*.data
+!shared/web/*.js
+
+# wasm-deps work dirs (if vendored locally)
+third_party/wasm-deps/artifacts/
+third_party/wasm-deps/prefixes/
+third_party/wasm-deps/src/
+
+# Game data — copyrighted retail pk3s / hosted ET data never committed
+data/pk3/
+data/*.pk3
+data/gamedata*/
+data/et-download/
+# Free publisher-released demos (id / Raven). Freely redistributable to download,
+# but still game data — fetched on demand, never committed.
+data/rtcw-demo/
+data/rtcwmp-demo/
+data/jk2-demo/
+data/jka-demo/
+*.pk3
+play/*/etmain/
+
+# Node / tooling
+node_modules/
+.DS_Store
+
+# Local dev config
+shared/web/.env

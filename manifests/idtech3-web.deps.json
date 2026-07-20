@@ -1,0 +1,10 @@
+{
+  "app": "idtech3-web",
+  "toolchain": "emsdk-6.0.1-jseh",
+  "_comment": "idTech3 engines vendor their own zlib + libjpeg (jpeg-6) and use their own sound mixer, so the dependency surface is intentionally near-empty. zlib/libjpeg come from Emscripten ports at link time if the vendored copies fight clang; SDL is NOT used (we write a native emscripten/html5.h platform layer). Add recipes here only if a specific engine needs an external lib (e.g. libogg/libvorbis for streamed music).",
+  "deps": [],
+  "ports": [
+    "zlib",
+    "libjpeg"
+  ]
+}

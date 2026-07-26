@@ -1,41 +1,146 @@
-<!doctype html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<!doctype html><html lang="en"><head><!-- Copyright (C) 2025-2026 Virtastic - https://virtastic.app | SPDX-License-Identifier: GPL-2.0-or-later | part of jka-web --><meta charset="utf-8">
+<title>Jedi Academy — jka-web</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" type="image/png" href="data:image/png;base64,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">
-<title>Jedi Knight: Jedi Academy — idTech3-web</title>
 <style>
-  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui,sans-serif}
-  #wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-  canvas{outline:none;display:block;background:#000;image-rendering:auto}
-  #load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-        justify-content:center;color:#c9b37e;background:#0a0806;transition:opacity .6s;z-index:10}
-  #load h1{font-size:20px;letter-spacing:3px;text-transform:uppercase;color:#7a1fa0;margin:0 0 14px}
-  #bar{width:280px;height:4px;background:#221a12;border-radius:2px;overflow:hidden}
-  #bar>i{display:block;height:100%;width:0;background:#7a1fa0;transition:width .2s}
-  #msg{margin-top:10px;font-size:12px;color:#7a6a52;min-height:16px}
-</style>
+ :root{
+   --ash:#0b0805; --panel:#171006; --panel-2:#211809; --line:#453313;
+   --ink:#f0e2c4; --muted:#b3a17e; --faint:#877659;
+   --bronze:#8a6224; --bronze-hi:#d29a3e; --gold:#ffb43c; --gold-hi:#ffd27e;
+   --ember:#a05e14;
+ }
+ *{box-sizing:border-box}
+ html,body{margin:0; min-height:100%}
+ body{background:var(--ash); color:var(--ink);
+   font:16px/1.6 "Optima","Gill Sans","Gill Sans MT",-apple-system,"Segoe UI",Roboto,sans-serif;
+   -webkit-font-smoothing:antialiased}
+ body.launching{overflow:hidden}
+ /* ── Launcher (removed at boot) ───────────────────────────────────────── */
+ #vt-launcher{min-height:100vh; padding:clamp(66px,8vh,92px) 22px 48px;
+   display:flex; justify-content:center; position:relative; z-index:20}
+ .topbar{position:fixed; top:0; left:0; right:0; z-index:30; pointer-events:none;
+   display:flex; align-items:center; justify-content:space-between; padding:13px 22px}
+ .topbar > *{pointer-events:auto}
+ .topbar a{display:inline-flex; align-items:center; text-decoration:none; color:var(--bronze-hi);
+   transition:color .16s ease}
+ .topbar a:hover{color:var(--gold-hi)}
+ .topbar a:focus-visible{outline:2px solid var(--gold); outline-offset:3px; border-radius:4px}
+ .topbar .home{gap:9px; font:600 12px/1 "Optima","Gill Sans",-apple-system,sans-serif;
+   letter-spacing:.17em; text-transform:uppercase}
+ .topbar .home svg{width:20px; height:20px; fill:currentColor}
+ .topbar .socials{display:flex; align-items:center; gap:16px}
+ .topbar .socials svg{width:18px; height:18px; fill:currentColor; display:block}
+ @media (max-width:520px){ .topbar{padding:11px 15px} .topbar .home .label{display:none} .topbar .socials{gap:13px} }
+ /* low ember glow + faint grain, straight from the morrowind launcher */
+ #vt-launcher::before{content:''; position:fixed; inset:0; z-index:-2; pointer-events:none;
+   background:
+     radial-gradient(150% 72% at 50% 132%, rgba(230,140,40,.26), rgba(0,0,0,0) 60%),
+     radial-gradient(90% 60% at 50% 134%, rgba(255,200,110,.12), rgba(0,0,0,0) 56%);
+   animation:ember 9s ease-in-out infinite}
+ #vt-launcher::after{content:''; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+ @keyframes ember{0%,100%{opacity:.82}50%{opacity:1}}
+ .wrap{width:100%; max-width:940px; text-align:center}
+ .eyebrow{font-size:11.5px; letter-spacing:.26em; text-transform:uppercase; font-weight:600;
+   color:var(--bronze-hi); margin:0 0 18px}
+ h1{margin:0; font-family:"Hoefler Text","Baskerville","Palatino Linotype",Palatino,Georgia,serif;
+   font-weight:600; font-size:clamp(38px,6.2vw,62px); line-height:1.04; letter-spacing:.005em;
+   color:var(--ink); text-shadow:0 1px 0 rgba(0,0,0,.5), 0 0 34px rgba(255,255,255,.06)}
+ .deck{margin:20px auto 0; max-width:58ch; color:var(--muted); font-size:16.5px}
+ .rule{display:flex; align-items:center; gap:16px; max-width:560px; margin:30px auto 42px}
+ .rule::before,.rule::after{content:''; height:1px; flex:1;
+   background:linear-gradient(90deg,transparent,var(--bronze) 60%,transparent)}
+ .rule::after{background:linear-gradient(90deg,transparent,var(--bronze) 40%,transparent)}
+ .diamond{width:7px; height:7px; transform:rotate(45deg); border:1px solid var(--gold); flex:none}
+ .cards{display:grid; grid-template-columns:1fr 1fr; gap:22px}
+ @media (max-width:720px){ .cards{grid-template-columns:1fr} }
+ .card{position:relative; padding:34px 30px 30px;
+   background:linear-gradient(160deg,var(--panel-2),var(--panel));
+   border:1px solid var(--line); border-radius:7px;
+   display:flex; flex-direction:column; align-items:center; gap:14px;
+   transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease}
+ .card::after{content:''; position:absolute; inset:13px; pointer-events:none; opacity:.7;
+   --c:var(--bronze); transition:opacity .18s ease;
+   background:
+     linear-gradient(var(--c),var(--c)) left top/17px 1.5px no-repeat,
+     linear-gradient(var(--c),var(--c)) left top/1.5px 17px no-repeat,
+     linear-gradient(var(--c),var(--c)) right top/17px 1.5px no-repeat,
+     linear-gradient(var(--c),var(--c)) right top/1.5px 17px no-repeat,
+     linear-gradient(var(--c),var(--c)) left bottom/17px 1.5px no-repeat,
+     linear-gradient(var(--c),var(--c)) left bottom/1.5px 17px no-repeat,
+     linear-gradient(var(--c),var(--c)) right bottom/17px 1.5px no-repeat,
+     linear-gradient(var(--c),var(--c)) right bottom/1.5px 17px no-repeat}
+ .card.actionable{cursor:pointer}
+ .card.actionable:hover{transform:translateY(-3px); border-color:var(--gold);
+   box-shadow:0 18px 40px rgba(0,0,0,.45)}
+ .card.actionable:hover::after{--c:var(--gold-hi); opacity:1}
+ .card:focus-visible{outline:2px solid var(--gold); outline-offset:3px}
+ .glyph{color:var(--bronze-hi); width:46px; height:46px; transition:color .18s ease}
+ .card.actionable:hover .glyph{color:var(--gold-hi)}
+ .glyph svg{width:100%; height:100%; display:block}
+ .kicker{font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; font-weight:600; color:var(--faint)}
+ .card h2{margin:0; font-family:"Hoefler Text","Baskerville","Palatino Linotype",Palatino,Georgia,serif;
+   font-weight:600; font-size:23px; letter-spacing:.01em; color:var(--ink)}
+ .card p{margin:0 auto; color:var(--muted); font-size:14.5px; line-height:1.55; max-width:34ch}
+ .card p.lead{flex:1}
+ .card b{color:var(--ink); font-weight:600}
+ .go{align-self:center; margin-top:10px; display:inline-flex; align-items:center; gap:8px;
+   font:600 12.5px/1 "Optima","Gill Sans",-apple-system,"Segoe UI",sans-serif;
+   letter-spacing:.12em; text-transform:uppercase; color:var(--gold); transition:color .16s ease, gap .16s ease}
+ .go .arw{font-size:14px; transform:translateY(-.5px)}
+ .card.actionable:hover .go{color:var(--gold-hi); gap:12px}
 
-<style id="idt3-virtastic-chrome">
-  /* Virtastic preview chrome — fixed topbar (home + socials) + PREVIEW ribbon. */
-  .vt-topbar{position:fixed;top:0;left:0;right:0;z-index:9000;pointer-events:none;
-    display:flex;align-items:center;justify-content:space-between;padding:11px 18px;
-    font-family:"Optima","Gill Sans",system-ui,sans-serif}
-  .vt-topbar>*{pointer-events:auto}
-  .vt-topbar a{display:inline-flex;align-items:center;text-decoration:none;color:#c69a52}
-  .vt-topbar a:hover{color:#eecb78}
-  .vt-topbar .home{gap:9px;font:600 12px/1 "Optima","Gill Sans",system-ui,sans-serif;
-    letter-spacing:2px;text-transform:uppercase}
-  .vt-topbar .home svg{width:20px;height:20px;fill:currentColor}
-  .vt-topbar .socials{display:flex;align-items:center;gap:16px}
-  .vt-topbar .socials svg{width:18px;height:18px;fill:currentColor;display:block}
-  @media (max-width:520px){.vt-topbar .home .label{display:none}}
-  .vt-preview{position:fixed;top:16px;right:-52px;z-index:9001;pointer-events:none;
-    transform:rotate(45deg);background:#c65a2e;color:#120a06;font:700 11px/1 system-ui,sans-serif;
-    letter-spacing:3px;padding:6px 60px;box-shadow:0 2px 8px #0008}
-</style>
+ .card select,.card input[type=text]{width:100%;max-width:250px;padding:10px 12px;border-radius:4px;
+   background:rgba(0,0,0,.35);border:1px solid var(--line);color:var(--ink);
+   font:14px "Optima","Gill Sans",-apple-system,sans-serif;text-align:center;text-align-last:center}
+ .card select:focus,.card input[type=text]:focus{outline:none;border-color:var(--gold)}
+ .cards.three{grid-template-columns:repeat(3,1fr)}
+ @media (max-width:980px){ .cards.three{grid-template-columns:1fr} }
+ .vt-gamecode{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:70;cursor:pointer;
+   background:rgba(0,0,0,.82);color:var(--ink);border:1px solid var(--gold);border-radius:5px;
+   padding:9px 18px;font:14px "Optima","Gill Sans",-apple-system,sans-serif}
+ .vt-gamecode b{color:var(--goldhi);font-size:18px;letter-spacing:1px;user-select:all}
+ footer{margin:44px auto 0; padding-top:22px; border-top:1px solid var(--line);
+   color:var(--faint); font-size:12.5px; line-height:1.7; max-width:66ch}
+ footer a{color:var(--bronze-hi); text-decoration:none; border-bottom:1px solid var(--line)}
+ footer a:hover{color:var(--gold)}
+ @keyframes rise{from{opacity:0; transform:translateY(16px)} to{opacity:1; transform:none}}
+ .reveal{opacity:0; animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+ .d1{animation-delay:.05s} .d2{animation-delay:.14s} .d3{animation-delay:.26s} .d4{animation-delay:.34s} .d5{animation-delay:.46s}
+ @media (prefers-reduced-motion:reduce){ *{animation:none!important} .reveal{opacity:1; transform:none} }
+ /* ── PREVIEW plaque: bottom-right, always visible, never blocks clicks ── */
+ .vt-preview{position:fixed; right:16px; bottom:16px; z-index:80; pointer-events:none;
+   font:600 10.5px/1 "Optima","Gill Sans",-apple-system,sans-serif; letter-spacing:.24em;
+   text-transform:uppercase; color:var(--gold-hi); border:1px solid var(--gold); border-radius:4px;
+   padding:7px 12px 7px 14px; background:rgba(0,0,0,.55);
+   -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px)}
+ /* ── Game + loading screen (behind the launcher until boot) ───────────── */
+ #wrap{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:1}
+ canvas{outline:none;display:block;background:#000;image-rendering:auto;
+   width:100%!important;height:100%!important;object-fit:contain}
+ #load{position:fixed; inset:0; display:none; flex-direction:column; align-items:center;
+   justify-content:center; background:var(--ash); transition:opacity .6s; z-index:10}
+ #load .l-eyebrow{font-size:11px; letter-spacing:.26em; text-transform:uppercase; font-weight:600;
+   color:var(--bronze-hi); margin:0 0 12px}
+ #load h1{font-size:clamp(22px,3.4vw,34px); margin:0 0 26px; text-align:center; padding:0 20px}
+ #bar{width:300px; max-width:70vw; height:4px; background:var(--panel-2); border-radius:2px; overflow:hidden;
+   border:1px solid var(--line)}
+ #bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--bronze-hi),var(--gold));transition:width .2s}
+ #msg{margin-top:12px;font-size:12.5px;color:var(--faint);min-height:16px;
+   font-family:"Optima","Gill Sans",-apple-system,sans-serif}
+</style></head>
+<body>
+<div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="load">
+  <p class="l-eyebrow">jka-web</p>
+  <h1>Jedi Knight — Jedi Academy</h1>
+  <div id="bar"><i></i></div>
+  <div id="msg">loading engine&hellip;</div>
+</div>
 
-<header class="vt-topbar" aria-label="Virtastic">
+<div id="vt-launcher">
+<header class="topbar">
   <a class="home" href="https://virtastic.app" target="_blank" rel="noopener" aria-label="Virtastic home">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
     <span class="label">Virtastic</span>
@@ -50,15 +155,40 @@
     <a href="https://ko-fi.com/virtastic" target="_blank" rel="noopener" aria-label="Ko-fi" title="Ko-fi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.965-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.963 1.904.82 1.832 3.011.723 4.311zm6.173.478c-.928.116-1.682.028-1.682.028V7.284h1.77s1.971.551 1.971 2.638c0 1.913-.985 2.667-2.059 3.015z"/></svg></a>
   </nav>
 </header>
-<div class="vt-preview">PREVIEW</div>
+<div class="wrap">
+  <p class="eyebrow reveal d1">jka-web</p>
+  <h1 class="reveal d1">Jedi Academy<br>in your browser</h1>
+  <p class="deck reveal d2">Jedi Knight: Jedi Academy single-player in your browser. Start the official demo, or bring the assets from your own copy of the game.</p>
+  <div class="rule reveal d2"><span class="diamond"></span></div>
 
-
-<div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
-<div id="load">
-  <h1>Jedi Knight: Jedi Academy</h1>
-  <div id="bar"><i></i></div>
-  <div id="msg">loading engine…</div>
+  <div class="cards">
+    <div class="card actionable reveal d3" id="card-demo" role="button" tabindex="0">
+      <div class="glyph" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="24" cy="24" r="17"/><path d="M20 16.5 32 24 20 31.5Z"/></svg></div>
+      <div class="kicker">Free demo</div>
+      <h2>Play the demo</h2>
+      <p class="lead">The official free demo mission. No copy of the game required.</p>
+      <div class="go">Start the demo <span class="arw">&#9656;</span></div>
+    </div>
+    <div class="card actionable reveal d4" id="card-own" role="button" tabindex="0">
+      <div class="glyph" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="9" y="12" width="30" height="8" rx="1.5"/><rect x="9" y="22" width="30" height="8" rx="1.5"/><rect x="9" y="32" width="24" height="7" rx="1.5"/><line x1="14" y1="12" x2="14" y2="20"/><line x1="14" y1="22" x2="14" y2="30"/></svg></div>
+      <div class="kicker">Your copy</div>
+      <h2>Bring your own Jedi Academy</h2>
+      <p class="lead">Pick the <b>assets*.pk3</b> files from the <b>GameData/base</b> folder of a legal install. Loaded locally &mdash; nothing is uploaded.</p>
+      <div class="go">Choose .pk3 files <span class="arw">&#9656;</span></div>
+      <input type="file" id="own-files" multiple accept=".pk3" hidden>
+    </div>
+  </div>
+  <footer class="reveal d5">
+    Jedi Academy game data is not included; the official demo is served, and retail data must come from your own legally-obtained copy. <i>Star Wars</i> and <i>Jedi Knight</i> are trademarks of their owners; this is an unofficial port of the GPL engine source, released under the GPLv2.
+    Saves and settings persist in your browser.
+    <br><br>
+    WASM port &copy; 2025&ndash;2026 <a href="https://virtastic.app" target="_blank" rel="noopener">Virtastic</a>
+    &middot; <a href="https://github.com/Virtastic/jka-web" target="_blank" rel="noopener">Source code</a>
+    &middot; <a href="https://github.com/Virtastic/jka-web/issues" target="_blank" rel="noopener">Report a bug</a>
+  </footer>
 </div>
+</div>
+<div class="vt-preview">Preview</div>
 
 <script>
 const bar = document.querySelector('#bar>i'), msg = document.getElementById('msg'), load = document.getElementById('load');
@@ -138,5 +268,54 @@ function sync(){ try { FS.syncfs(false, function(){}); } catch(e){} }
 setInterval(()=>{ if (booted) sync(); }, 15000);
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) sync(); });
 window.addEventListener('pagehide', sync);
+
+// ── Launcher boot gate ──────────────────────────────────────────────────────
+// The engine only starts when a card is chosen: the launcher is removed, the themed loading
+// screen appears, and the engine script is injected. The PREVIEW plaque stays.
+var __relay = (location.protocol === 'https:')
+  ? 'wss://relay.virtastic.app'
+  : ('ws://' + (location.hostname || 'localhost') + ':27960');
+function boot(args, relay){
+  if (relay) window.__IDT3_NET_RELAY = relay;
+  if (args && args.length) Module.arguments = args;
+  var l = document.getElementById('vt-launcher'); if (l) l.remove();
+  document.body.classList.add('launching');
+  document.getElementById('load').style.display = 'flex';
+  var s = document.createElement('script'); s.src = 'jka.js?v=3'; document.body.appendChild(s);
+}
+function card(id, fn){
+  var el = document.getElementById(id); if (!el) return;
+  el.addEventListener('click', function(e){
+    if (e.target.closest('select,input,option')) return;   // embedded controls keep their clicks
+    fn();
+  });
+  el.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && !e.target.closest('select,input')) fn();
+  });
+}
+(function(){
+  if (__argParam) { boot(Module.arguments, window.__IDT3_NET_RELAY || null); return; }  // ?args= deep link
+
+  card('card-demo', function(){ boot([]); });
+  var ownInput = document.getElementById('own-files');
+  card('card-own', function(){ ownInput.click(); });
+  ownInput.addEventListener('change', function(){
+    var files = Array.from(ownInput.files || []);
+    if (!files.length) return;
+    window.__JKA_PAKS = [];               // silence the built-in demo fetch
+    window.__JKA_GAMEDIR = 'base';
+      Module.preRun.push(function(){             // stage the picked paks locally
+      files.forEach(function(f){
+        addRunDependency('own:'+f.name);
+        setLoading('loading '+f.name+'\u2026');
+        f.arrayBuffer().then(function(buf){
+          FS.writeFile('/jka/base/'+f.name, new Uint8Array(buf));
+          removeRunDependency('own:'+f.name);
+        }).catch(function(e){ console.warn('local pak failed:', e.message); removeRunDependency('own:'+f.name); });
+      });
+    });
+    boot([]);
+  });
+})();
 </script>
-<script src="jka.js"></script>
+</body></html>

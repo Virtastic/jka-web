@@ -1,0 +1,102 @@
+name: deploy-ovh (jka.virtastic.app)
+
+# Deploys Jedi Knight: Jedi Academy to the OVH VPS via the Virtastic self-hosted runner (runs ON the box with docker).
+# The wasm/js (and ET data for wolfet) are gitignored build products; a clean checkout omits them, so
+# they are staged from ~/jka-web-src (rsync'd onto the runner) into the build context — same approach
+# openmw-web uses for its demo data.
+on:
+  push:
+    branches: [ovhcloud]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ovh-jka
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'Virtastic/jka-web' && github.event_name != 'pull_request'
+    runs-on: [self-hosted, ovh, virtastic]
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      TF_VAR_origin_ip: "REDACTED-ORIGIN-IP"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage built artifacts into build context
+        run: |
+          test -n "$(ls -A "$HOME/jka-web-src/play/jka" 2>/dev/null)" \
+            || { echo "FATAL: ~/jka-web-src/play/jka missing on the runner — build+rsync the wasm first." >&2; exit 1; }
+          mkdir -p play/jka
+          rsync -a --delete "$HOME/jka-web-src/play/jka/" play/jka/
+          echo "staged $(find play/jka -type f | wc -l) files ($(du -sh play/jka | cut -f1))"
+
+      - name: Build image
+        run: DOCKER_BUILDKIT=1 docker build --network=host -t jka:ovh -f Dockerfile .
+
+      - name: Sync compose to /opt/jka
+        run: |
+          sudo mkdir -p /opt/jka
+          sudo cp docker-compose.prod.yml /opt/jka/docker-compose.prod.yml
+
+      - name: Install edge vhost
+        run: sudo cp deploy/jka.virtastic.app.caddy /opt/edge/sites/jka.virtastic.app.caddy
+
+      - name: Start / update container
+        run: docker compose -f /opt/jka/docker-compose.prod.yml up -d
+
+      - name: Apply edge config
+        run: |
+          docker exec edge-caddy caddy validate --config /etc/caddy/Caddyfile
+          docker restart edge-caddy
+
+      # Idempotent DNS upsert via the Cloudflare API (create-or-update the proxied A record[s]).
+      # Preferred over `terraform apply` here because the runner has no persistent TF state, so a
+      # re-run would try to re-create existing records and fail. (infra/terraform/ is kept as the
+      # declarative reference.) Token: org secret CLOUDFLARE_API_TOKEN (Zone:Read + DNS:Edit).
+      - name: DNS (Cloudflare upsert)
+        run: |
+          set -euo pipefail
+          CF="$CLOUDFLARE_API_TOKEN"; ORIGIN="$TF_VAR_origin_ip"
+          if [ -z "$CF" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN not available to this repo — skipping DNS upsert."
+            echo "Grant the org secret to this repo (org Settings -> Secrets -> CLOUDFLARE_API_TOKEN) and re-run."
+            exit 0
+          fi
+          ZID=$(curl -sS -H "Authorization: Bearer $CF" \
+            "https://api.cloudflare.com/client/v4/zones?name=virtastic.app" | jq -r '.result[0].id')
+          test -n "$ZID" -a "$ZID" != "null" || { echo "FATAL: could not resolve zone id"; exit 1; }
+          for H in jka.virtastic.app; do
+            REC=$(curl -sS -H "Authorization: Bearer $CF" \
+              "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records?type=A&name=$H" | jq -r '.result[0].id // empty')
+            BODY=$(printf '{"type":"A","name":"%s","content":"%s","proxied":true,"ttl":1}' "$H" "$ORIGIN")
+            if [ -n "$REC" ]; then
+              curl -sS -X PUT -H "Authorization: Bearer $CF" -H "Content-Type: application/json" \
+                "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records/$REC" --data "$BODY" | jq -r '.success' | grep -q true
+              echo "updated $H"
+            else
+              curl -sS -X POST -H "Authorization: Bearer $CF" -H "Content-Type: application/json" \
+                "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records" --data "$BODY" | jq -r '.success' | grep -q true
+              echo "created $H"
+            fi
+          done
+
+      - name: Health check (container)
+        run: |
+          sleep 4
+          docker run --rm --network nostalgia curlimages/curl:latest \
+            -fsS -D - -o /dev/null http://jka:80/ \
+            | tee /dev/stderr | grep -qi '^cross-origin-opener-policy: same-origin'
+
+      - name: Health check (edge, bypassing Cloudflare)
+        run: |
+          set -e
+          E() { curl -sS -k --resolve jka.virtastic.app:443:127.0.0.1 "$@"; }
+          for i in $(seq 1 12); do E -o /dev/null https://jka.virtastic.app/ && break; echo "edge not ready ($i)…"; sleep 3; done
+          E -D /tmp/h -o /dev/null https://jka.virtastic.app/; echo "--- headers ---"; cat /tmp/h
+          for hdr in "cross-origin-opener-policy: same-origin" "cross-origin-embedder-policy: require-corp"; do
+            n=$(grep -ci "^$hdr" /tmp/h); test "$n" = 1 || { echo "FATAL: '$hdr' count=$n (want 1)"; exit 1; }
+          done
+          grep -qi '^x-robots-tag: *noindex' /tmp/h || { echo "FATAL: missing X-Robots-Tag noindex"; exit 1; }
+          E -f -o /dev/null https://jka.virtastic.app/robots.txt
+          echo "edge health OK"

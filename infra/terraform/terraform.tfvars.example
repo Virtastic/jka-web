@@ -1,0 +1,2 @@
+# Copy to terraform.tfvars (gitignored). CLOUDFLARE_API_TOKEN comes from the env, not here.
+origin_ip = "REDACTED-ORIGIN-IP"

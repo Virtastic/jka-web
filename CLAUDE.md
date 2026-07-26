@@ -43,5 +43,5 @@ node shared/wasm-build/verify-browser.mjs   # CDP boot/menu/save smoke test
 
 ## Milestones
 
-M0 scaffolding · **M1 RTCW-SP (current)** · M2 JK2-SP · M3 JKA-SP · M4 Wolf:ET + RTCW-MP (net) · M5 polish/prod.
-See `/Users/mstavridis/.claude/plans/we-are-doing-a-dazzling-crane.md` for the full plan.
+M0 scaffolding · M1 RTCW-SP · M2 JK2-SP · M3 JKA-SP · M4 Wolf:ET + RTCW-MP (net) · M5 polish/prod.
+All five engines build, boot, render, and play; see `docs/WASM_ADAPTATIONS.md` for the engineering log.

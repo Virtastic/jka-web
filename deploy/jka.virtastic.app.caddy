@@ -1,0 +1,10 @@
+# Edge vhost for jka.virtastic.app — drop-in into the shared edge Caddy's sites dir
+# (VPS: /opt/edge/sites/jka.virtastic.app.caddy; imported by /opt/edge/Caddyfile via `import sites/*.caddy`).
+# The edge terminates TLS with the *.virtastic.app Cloudflare Origin cert and reverse-proxies to the
+# container by name. The container's own nginx sets COOP/COEP/CORP + X-Robots-Tag noindex; those pass
+# through. This vhost must NOT duplicate COOP/COEP (a duplicate breaks crossOriginIsolated).
+jka.virtastic.app {
+	tls /certs/virtastic.crt /certs/virtastic.key
+	import sec_headers
+	reverse_proxy jka:80
+}

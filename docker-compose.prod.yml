@@ -1,0 +1,15 @@
+# Production compose for jka.virtastic.app — synced to /opt/jka/ on the OVH VPS.
+# One static-serving container on the shared `nostalgia` network; the shared edge Caddy reaches it
+# by name (jka:80). Publishes NO host ports — only the edge talks to it. No secrets, no db.
+services:
+  jka:
+    image: jka:ovh            # built + tagged by the deploy workflow on the runner
+    container_name: jka
+    restart: unless-stopped
+    networks: [shared]
+    # Upload-only: no game data hosted; users supply their own paks in-browser.
+
+networks:
+  shared:
+    external: true
+    name: nostalgia

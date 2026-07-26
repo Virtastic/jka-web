@@ -273,6 +273,7 @@ window.addEventListener('pagehide', sync);
 // The engine only starts when a card is chosen: the launcher is removed, the themed loading
 // screen appears, and the engine script is injected. The PREVIEW plaque stays.
 var __q = new URLSearchParams(location.search);
+var __STAMP = '1785103811';
 var __relay = (location.protocol === 'https:')
   ? 'wss://relay.virtastic.app'
   : ('ws://' + (location.hostname || 'localhost') + ':27960');
@@ -356,7 +357,15 @@ function boot(args, relay){
   document.body.classList.add('launching');
   document.getElementById('load').style.display = 'flex';
   window.__idt3_booting = true;
-  var s = document.createElement('script'); s.src = 'jka.js?v=3'; document.body.appendChild(s);
+  // Cache-bust the engine: the .js/.wasm are served immutable, so stale CF/browser copies
+  // from an earlier deploy would otherwise keep loading. Stamp both the script URL and every
+  // .wasm fetch (main engine + side modules) with this page generation's version.
+  var of = window.fetch;
+  window.fetch = function(u, o) {
+    if (typeof u === 'string' && /\.wasm$/.test(u)) u += '?v=' + __STAMP + '';
+    return of.call(window, u, o);
+  };
+  var s = document.createElement('script'); s.src = 'jka.js?v=' + __STAMP + ''; document.body.appendChild(s);
 }
 function card(id, fn){
   var el = document.getElementById(id); if (!el) return;

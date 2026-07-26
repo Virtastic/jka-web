@@ -40,24 +40,32 @@ void GLimp_Init( void ) {
 		w = 1024; h = 768; aspect = (float)w / (float)h;
 	}
 
-	// idTech3-web: r_mode 3 (the default) is 640x480, and the canvas is object-fit:contain
-	// + image-rendering:auto in the page — so that 640x480 backing store gets SMOOTHLY
-	// UPSCALED to the browser window, i.e. a soft/blurry image on any modern display. Render
-	// at the actual displayed device-pixel resolution instead. Keep 4:3 (these are 2001 4:3
-	// games; the 2D HUD/menus assume it) — the page letterboxes to 4:3 anyway. r_mode -1 /
-	// an explicit r_mode still wins (the user can override), so only auto-size at the default.
-	if ( Cvar_VariableIntegerValue( "r_mode" ) == 3 ) {
-		// Height-limited 4:3 fit in the (landscape) viewport, at device pixels. Use the live
-		// viewport size — emscripten_get_element_css_size reports the 640x480 default here.
-		int rh = EM_ASM_INT({
+	// idTech3-web: the mode table is a 2001 artifact — every entry is far below a modern
+	// display, and the page CSS-stretches whatever we pick (soft/blurry). Unless the user
+	// explicitly asked for a custom mode (r_mode -1 + r_customwidth/height), render at the
+	// FULL viewport at device pixels — real aspect, no forced 4:3 pillarbox — bounded by a
+	// pixel budget so huge/hiDPI windows don't blow the fill budget (same policy as
+	// openmw-web: ~4 MP base). Module.__idt3_ss (page ?ss=) scales the budget for SSAA.
+	// The 3D view is aspect-correct via glConfig.windowAspect; the 640x480-projected 2D
+	// HUD stretches, exactly as these engines did on real widescreen monitors in-period.
+	if ( Cvar_VariableIntegerValue( "r_mode" ) != -1 ) {
+		int packed = EM_ASM_INT({
 			var dpr = window.devicePixelRatio || 1;
-			var vh = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 768;
-			var r = Math.round(vh * dpr);
-			if ( r > 1200 ) r = 1200;               // cap fill cost (crisp on ~1080p; users can set r_mode)
-			if ( r < 480 ) r = 480;
-			return r;
+			var de = document.documentElement;
+			var vw = window.innerWidth  || (de && de.clientWidth)  || 1280;
+			var vh = window.innerHeight || (de && de.clientHeight) || 720;
+			var ss = (typeof Module !== 'undefined' && Module.__idt3_ss > 0) ? Module.__idt3_ss : 1;
+			var w = Math.max(320, Math.round(vw * dpr * ss));
+			var h = Math.max(240, Math.round(vh * dpr * ss));
+			var maxPix = Math.min(4.0e6 * ss * ss, 8.0e6);   // budget; hard 8 MP ceiling
+			var scale = Math.sqrt(Math.min(1, maxPix / (w * h)));
+			w = Math.max(320, (Math.floor(w * scale) >> 1) << 1);   // even dims
+			h = Math.max(240, (Math.floor(h * scale) >> 1) << 1);
+			return (w << 16) | h;                            // both < 32768 after the budget
 		});
-		w = ( rh * 4 ) / 3; h = rh; aspect = 4.0f / 3.0f;
+		w = ( packed >> 16 ) & 0xffff;
+		h = packed & 0xffff;
+		aspect = (float)w / (float)h;
 	}
 
 	emscripten_webgl_init_context_attributes( &attrs );
@@ -66,7 +74,7 @@ void GLimp_Init( void ) {
 	attrs.alpha = EM_FALSE;
 	attrs.depth = EM_TRUE;
 	attrs.stencil = EM_TRUE;
-	attrs.antialias = EM_FALSE;
+	attrs.antialias = EM_TRUE;   // default-framebuffer MSAA — free edge quality with GPU headroom to spare
 	attrs.preserveDrawingBuffer = EM_FALSE;
 	attrs.powerPreference = EM_WEBGL_POWER_PREFERENCE_HIGH_PERFORMANCE;
 	attrs.enableExtensionsByDefault = EM_TRUE;
@@ -103,6 +111,14 @@ void GLimp_Init( void ) {
 		if (typeof _glTexEnvfv === 'function' && !_glTexEnvfv.sig) _glTexEnvfv.sig = 'viii';
 		if (typeof _glGetTexEnviv === 'function' && !_glGetTexEnviv.sig) _glGetTexEnviv.sig = 'viii';
 		if (typeof _glGetTexEnvfv === 'function' && !_glGetTexEnvfv.sig) _glGetTexEnvfv.sig = 'viii';
+		/* idTech3-web: WebGL only accepts GL_TEXTURE_MAX_ANISOTROPY_EXT after getExtension()
+		   is called on the context. Activate it so the renderer's anisotropic path (Wolf:ET's
+		   GL_TextureAnisotropy) actually works instead of raising INVALID_ENUM. */
+		try { if (typeof GL !== 'undefined' && GL.currentContext && GL.currentContext.GLctx) {
+			GL.currentContext.GLctx.getExtension('EXT_texture_filter_anisotropic') ||
+			GL.currentContext.GLctx.getExtension('WEBKIT_EXT_texture_filter_anisotropic') ||
+			GL.currentContext.GLctx.getExtension('MOZ_EXT_texture_filter_anisotropic');
+		} } catch (e) {}
 	});
 	emscripten_set_canvas_element_size( CANVAS, w, h );
 
@@ -120,8 +136,14 @@ void GLimp_Init( void ) {
 	glConfig.deviceSupportsGamma = qfalse;   // no gamma ramp in the browser
 	glConfig.textureCompression = TC_NONE;
 	glConfig.textureEnvAddAvailable = qtrue;
-	glConfig.anisotropicAvailable = qfalse;
-	glConfig.maxAnisotropy = 0;
+	// Anisotropic filtering: the extension was activated above; report the real max so the
+	// renderer's aniso path (used by Wolf:ET; RTCW's renderer never applies it) can engage.
+	{
+		GLint maxAniso = 0;
+		qglGetIntegerv( 0x84FF /* GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT */, &maxAniso );
+		glConfig.anisotropicAvailable = ( maxAniso > 1 ) ? qtrue : qfalse;
+		glConfig.maxAnisotropy = maxAniso;
+	}
 
 	Q_strncpyz( glConfig.vendor_string, (const char *)qglGetString( GL_VENDOR ), sizeof( glConfig.vendor_string ) );
 	Q_strncpyz( glConfig.renderer_string, (const char *)qglGetString( GL_RENDERER ), sizeof( glConfig.renderer_string ) );
@@ -274,7 +296,45 @@ static EM_BOOL OnWheel( int eventType, const EmscriptenWheelEvent *e, void *ud )
 	return EM_TRUE;
 }
 
+// ==========================================================================
+// Window resize → debounced vid_restart, and hidden-tab main-loop pacing.
+// ==========================================================================
+// The backing store is sized to the viewport at GLimp_Init; when the window (or DPR)
+// changes, re-run the full init via vid_restart — the proven path (the GLEmulation
+// re-init block above exists precisely for it). Debounced so a drag-resize fires once.
+void Cbuf_AddText( const char *text );   // qcommon (same binary; no header needed here)
+
+static double s_resizeAt = 0;            // emscripten_get_now() of the last resize event
+static qboolean s_resizePending = qfalse;
+
+static EM_BOOL OnResize( int eventType, const EmscriptenUiEvent *e, void *ud ) {
+	s_resizeAt = emscripten_get_now();
+	s_resizePending = qtrue;
+	return EM_FALSE;
+}
+
+// Hidden tabs stop requestAnimationFrame, freezing the engine entirely — which kills MP
+// connections and stalls loads. Swap the main loop to a setTimeout tick while hidden
+// (browsers throttle it, but even 1 Hz keeps netchan + timers alive), back to RAF when
+// visible. Registered in IN_Init; applies to every engine using this platform layer.
+static EM_BOOL OnVisibility( int eventType, const EmscriptenVisibilityChangeEvent *e, void *ud ) {
+	if ( e->hidden ) {
+		emscripten_set_main_loop_timing( EM_TIMING_SETTIMEOUT, 50 );
+	} else {
+		emscripten_set_main_loop_timing( EM_TIMING_RAF, 1 );
+	}
+	// set_main_loop_timing alone does NOT re-kick the loop: the next tick is whatever the
+	// PREVIOUS mode already queued — for a tab going hidden that's a RAF that will never
+	// fire, leaving the engine dead (verified live). pause+resume invalidates the stale
+	// callback (currentlyRunningMainloop bump) and reschedules under the new timing.
+	emscripten_pause_main_loop();
+	emscripten_resume_main_loop();
+	return EM_FALSE;
+}
+
 void IN_Init( void ) {
+	emscripten_set_resize_callback( EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_FALSE, OnResize );
+	emscripten_set_visibilitychange_callback( NULL, EM_FALSE, OnVisibility );
 	emscripten_set_keydown_callback( EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, OnKey );
 	emscripten_set_keyup_callback( EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, OnKey );
 	// idTech3-web: register mouse on the window, not "#canvas". The canvas selector
@@ -292,7 +352,32 @@ void IN_Shutdown( void ) {
 	mouseActive = qfalse;
 }
 
-void IN_Frame( void ) { }
+void IN_Frame( void ) {
+	// Debounced resize: 300ms after the last resize event, if the viewport's target backing
+	// size meaningfully differs from the current one, re-init video. Skip while a custom
+	// mode is forced (r_mode -1) — the user pinned the resolution deliberately.
+	if ( s_resizePending && emscripten_get_now() - s_resizeAt > 300.0 ) {
+		s_resizePending = qfalse;
+		if ( Cvar_VariableIntegerValue( "r_mode" ) != -1 ) {
+			int vw = EM_ASM_INT({
+				var dpr = window.devicePixelRatio || 1;
+				return Math.round((window.innerWidth || 1280) * dpr);
+			});
+			int vh = EM_ASM_INT({
+				var dpr = window.devicePixelRatio || 1;
+				return Math.round((window.innerHeight || 720) * dpr);
+			});
+			// Compare against the un-budgeted target: only restart when the shape actually
+			// changed (>6% in either axis) so tiny scrollbar/zoom jitter doesn't thrash.
+			float dw = (float)vw / (float)glConfig.vidWidth;
+			float dh = (float)vh / (float)glConfig.vidHeight;
+			if ( dw < 0.94f || ( dw > 1.06f && glConfig.vidWidth * glConfig.vidHeight < 3900000 )
+			  || dh < 0.94f || ( dh > 1.06f && glConfig.vidWidth * glConfig.vidHeight < 3900000 ) ) {
+				Cbuf_AddText( "vid_restart\n" );
+			}
+		}
+	}
+}
 
 void IN_Activate( void ) { }
 

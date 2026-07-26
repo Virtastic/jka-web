@@ -118,6 +118,17 @@ void Sys_UnloadDll( void *dllHandle ) {
 // ==========================================================================
 // Entry point.
 // ==========================================================================
+#include <emscripten/html5.h>
+
+static void Sys_ApplyInitialTiming( void *unused ) {
+	EmscriptenVisibilityChangeEvent v;
+	if ( emscripten_get_visibility_status( &v ) == EMSCRIPTEN_RESULT_SUCCESS && v.hidden ) {
+		emscripten_set_main_loop_timing( EM_TIMING_SETTIMEOUT, 50 );
+		emscripten_pause_main_loop();
+		emscripten_resume_main_loop();
+	}
+}
+
 int main( int argc, char **argv ) {
 	char commandLine[MAX_STRING_CHARS] = "";
 	int i;
@@ -132,6 +143,12 @@ int main( int argc, char **argv ) {
 	Com_Init( commandLine );
 
 	IN_Init();
+
+	// The visibilitychange handler (sys_glimp.c) only fires on CHANGES — a tab that STARTS
+	// hidden/occluded would boot into a RAF loop that never ticks. One async tick after the
+	// main loop exists, apply setTimeout pacing if hidden; pause+resume invalidates the
+	// already-queued (never-firing) RAF and reschedules under the new timing.
+	emscripten_async_call( Sys_ApplyInitialTiming, NULL, 0 );
 
 	// 0 fps → drive from requestAnimationFrame. simulate_infinite_loop=1 keeps the
 	// runtime alive so the frame callback (and the live FS/GL state) survive.

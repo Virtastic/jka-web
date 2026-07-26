@@ -64,7 +64,13 @@ EM_JS( int, idt3_snd_start, ( short *bufPtr, int samples, int channels, int spee
 	try {
 		var AC = window.AudioContext || window.webkitAudioContext;
 		if (!AC) return 0;
-		var ctx = new AC({ sampleRate: speed, latencyHint: 'interactive' });
+		// Reuse a page-precreated context when present (created inside the launcher's click
+		// gesture, so it starts un-suspended), else create one at the DEVICE rate — forcing
+		// 22050 made the browser resample every scheduled buffer. 'playback' latencyHint:
+		// larger internal buffers, main-thread-stall-proof; our own look-ahead sets latency.
+		var ctx = (Module.__idt3_audioCtx && Module.__idt3_audioCtx.state !== 'closed')
+			? Module.__idt3_audioCtx
+			: new AC({ latencyHint: 'playback' });
 		var rate = ctx.sampleRate | 0;
 		if (!rate) return 0;
 		var frames = (samples / channels) | 0;          // frames in the ring
@@ -82,15 +88,23 @@ EM_JS( int, idt3_snd_start, ( short *bufPtr, int samples, int channels, int spee
 			// schedule whole chunks until the queue reaches the look-ahead horizon
 			while (S.startT + (S.sched + chunk) / rate <= horizon) {
 				var buf = ctx.createBuffer(channels, chunk, rate);
-				var peak = S.peak;
+				// Wrap-split bulk copy: at most two contiguous ring segments per chunk — no
+				// per-sample modulo. (The old loop did chunk*channels modulos + peak checks.)
+				var inv = 1 / 32768;
 				for (var c = 0; c < channels; c++) {
 					var ch = buf.getChannelData(c);
-					for (var i = 0; i < chunk; i++) {
-						var fr = (S.sched + i) % frames;              // ring frame
-						var v = HEAP16[base + fr * channels + c] / 32768;
-						ch[i] = v;
-						var a = v < 0 ? -v : v; if (a > peak) peak = a;
+					var idx = 0, rem = chunk, fr = S.sched % frames;
+					while (rem > 0) {
+						var n = Math.min(rem, frames - fr);
+						var off = base + fr * channels + c;
+						for (var i = 0; i < n; i++) ch[idx + i] = HEAP16[off + i * channels] * inv;
+						idx += n; rem -= n; fr = 0;
 					}
+				}
+				// Cheap peak (harness liveness probe): sample every 16th frame of channel 0.
+				var ch0 = buf.getChannelData(0), peak = S.peak;
+				for (var p = 0; p < chunk; p += 16) {
+					var a = ch0[p] < 0 ? -ch0[p] : ch0[p]; if (a > peak) peak = a;
 				}
 				S.peak = peak;
 				var src = ctx.createBufferSource();

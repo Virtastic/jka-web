@@ -272,15 +272,90 @@ window.addEventListener('pagehide', sync);
 // ── Launcher boot gate ──────────────────────────────────────────────────────
 // The engine only starts when a card is chosen: the launcher is removed, the themed loading
 // screen appears, and the engine script is injected. The PREVIEW plaque stays.
+var __q = new URLSearchParams(location.search);
 var __relay = (location.protocol === 'https:')
   ? 'wss://relay.virtastic.app'
   : ('ws://' + (location.hostname || 'localhost') + ':27960');
+
+// ── Console hygiene: engine output → in-memory ring, console stays clean ───
+// Engine warnings (demo-data gaps etc.) used to spam console.warn on every run. They now land
+// in a 2000-line ring; genuine fatals still hit console.error + the loading-screen message.
+// ?debug shows a live log panel with a download button. window.__idt3_dumpLog() from devtools.
+var __LOG = [], __LOG_MAX = 2000;
+var __FATAL_RE = /ERR_FATAL|Sys_Error|RuntimeError|abort\(|Aborted|could not create WebGL|out of memory/i;
+function __logLine(t){
+  __LOG.push(t); if (__LOG.length > __LOG_MAX) __LOG.shift();
+  var p = document.getElementById('vt-logbody');
+  if (p) { p.textContent += t + '\n'; if (p.textContent.length > 120000) p.textContent = p.textContent.slice(-80000); p.scrollTop = p.scrollHeight; }
+}
+window.__idt3_dumpLog = function(){ return __LOG.join('\n'); };
+Module.print    = function(t){ __logLine(t); };
+Module.printErr = function(t){
+  __logLine('! ' + t);
+  if (__FATAL_RE.test(t)) { console.error(t); try { Module.onFatal && Module.onFatal(t); } catch(e){} }
+};
+if (__q.has('debug')) document.addEventListener('DOMContentLoaded', function(){
+  var d = document.createElement('div');
+  d.id = 'vt-log';
+  d.style.cssText = 'position:fixed;left:10px;bottom:52px;z-index:90;width:min(560px,90vw);height:240px;'
+    + 'display:flex;flex-direction:column;background:rgba(0,0,0,.82);border:1px solid var(--line);border-radius:6px;'
+    + 'font:11px/1.5 ui-monospace,Menlo,monospace;color:var(--muted)';
+  d.innerHTML = '<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--line)">'
+    + '<b style="color:var(--ink)">engine log</b><a href="#" id="vt-logdl" style="color:var(--gold)">download</a></div>'
+    + '<pre id="vt-logbody" style="flex:1;margin:0;padding:8px 10px;overflow:auto;white-space:pre-wrap"></pre>';
+  document.body.appendChild(d);
+  document.getElementById('vt-logdl').onclick = function(e){
+    e.preventDefault();
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([__LOG.join('\n')], {type:'text/plain'}));
+    a.download = 'jka-engine.log'; a.click();
+  };
+});
+
+// ── Tuned boot config (+ ?cvar= URL overrides) ──────────────────────────────
+// No hardware gamma ramp in the browser, so idTech3's overbright pipeline renders DARK by
+// default: bake the correction into texture/lightmap upload instead (latched cvars, applied
+// pre-first-map). Widescreen: the backing store follows the viewport, so give the 3D view a
+// Hor+ fov (90° vertical-equivalent at 4:3). Any ?r_*/cg_*/com_*/s_*/cl_*=v query param
+// becomes a trailing +set (wins over the baseline) for A/B tuning without redeploys.
+function __tuneArgs(){
+  var vw = innerWidth || (screen && screen.width) || 1280;
+  var vh = innerHeight || (screen && screen.height) || 720;
+  // Hor+ from 90°@4:3 (73.74° vertical); clamp aspect to [4:3, 21:9] and fov to [90, 121]
+  // so a bogus viewport reading can never produce a broken (>=180°) projection.
+  var aspect = Math.min(Math.max(vw / Math.max(vh, 1), 4/3), 21/9);
+  var fov = Math.round(2 * Math.atan(Math.tan(73.74 * Math.PI / 360) * aspect) * 360 / Math.PI);
+  fov = Math.min(Math.max(fov, 90), 121);
+  var t = [
+    'r_overBrightBits','0', 'r_mapOverBrightBits','2', 'r_intensity','1.3', 'r_gamma','1.2',
+    'r_picmip','0', 'r_textureMode','GL_LINEAR_MIPMAP_LINEAR',
+    'r_ext_texture_filter_anisotropic','8',
+    'com_maxfps','125', 'cg_fov',String(fov)
+  ];
+  var a = [];
+  for (var i = 0; i < t.length; i += 2) a.push('+set', t[i], t[i+1]);
+  __q.forEach(function(v, k){
+    if (/^(r|cg|com|s|cl)_[A-Za-z0-9_]+$/.test(k)) a.push('+set', k, v);
+  });
+  return a;
+}
+
 function boot(args, relay){
   if (relay) window.__IDT3_NET_RELAY = relay;
-  if (args && args.length) Module.arguments = args;
+  // ?ss=N — SSAA factor consumed by the engine's viewport sizing (scales the pixel budget).
+  var ss = parseFloat(__q.get('ss') || '');
+  if (ss > 0 && ss <= 2) Module.__idt3_ss = ss;
+  // Pre-create the AudioContext inside this click gesture at the device rate ('playback'
+  // hint) — the engine's sound backend reuses it, so audio starts un-suspended and unresampled.
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (AC && !Module.__idt3_audioCtx) Module.__idt3_audioCtx = new AC({ latencyHint: 'playback' });
+  } catch(e){}
+  Module.arguments = __tuneArgs().concat(args && args.length ? args : []);
   var l = document.getElementById('vt-launcher'); if (l) l.remove();
   document.body.classList.add('launching');
   document.getElementById('load').style.display = 'flex';
+  window.__idt3_booting = true;
   var s = document.createElement('script'); s.src = 'jka.js?v=3'; document.body.appendChild(s);
 }
 function card(id, fn){
@@ -293,6 +368,39 @@ function card(id, fn){
     if (e.key === 'Enter' && !e.target.closest('select,input')) fn();
   });
 }
+
+// ── Lifecycle ───────────────────────────────────────────────────────────────
+// Saves/config live in IDBFS — ask the browser not to LRU-evict them.
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e){}
+// GPU context loss has no restore path under LEGACY_GL_EMULATION: flush saves, tell the
+// player, reload. (Same policy as openmw-web.)
+document.getElementById('canvas').addEventListener('webglcontextlost', function(ev){
+  ev.preventDefault();
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;inset:0;z-index:95;display:flex;align-items:center;justify-content:center;'
+    + 'background:rgba(0,0,0,.88);color:var(--ink);font:16px "Optima","Gill Sans",sans-serif';
+  d.textContent = 'GPU context lost — saving and reloading\u2026';
+  document.body.appendChild(d);
+  var done = false, go = function(){ if (!done) { done = true; location.reload(); } };
+  try { FS.syncfs(false, go); setTimeout(go, 2500); } catch(e) { go(); }
+});
+// Esc drops pointer lock; hint how to get the mouse back (the engine re-requests on click).
+document.addEventListener('pointerlockchange', function(){
+  var had = window.__idt3_hadlock;
+  window.__idt3_hadlock = !!document.pointerLockElement;
+  if (had && !document.pointerLockElement && window.__idt3_booting) {
+    var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:70;'
+      + 'background:rgba(0,0,0,.75);color:var(--muted);border:1px solid var(--line);border-radius:5px;'
+      + 'padding:7px 14px;font:13px "Optima","Gill Sans",sans-serif;pointer-events:none';
+    d.textContent = 'click to recapture the mouse';
+    document.body.appendChild(d);
+    setTimeout(function(){ d.remove(); }, 2600);
+  }
+});
+// ?bright=N — page-level brightness fallback (CSS filter on the canvas only).
+if (__q.get('bright')) document.getElementById('canvas').style.filter = 'brightness(' + (+__q.get('bright') || 1) + ')';
+
 (function(){
   if (__argParam) { boot(Module.arguments, window.__IDT3_NET_RELAY || null); return; }  // ?args= deep link
 

@@ -1048,3 +1048,37 @@ reaching the renderer/main-menu requires a `pak0.pk3` (demo or retail) supplied 
 | M2 | JK2-SP | — | — | — | |
 | M3 | JKA-SP | — | — | — | |
 | M4 | Wolf:ET / RTCW-MP | — | — | — | |
+
+## M5 polish: full-viewport rendering, quality, hidden-tab survival (2026-07)
+
+Platform-layer pass (one commit, `shared/wasm-build/sys_emscripten*` — no `games/` changes)
+plus a page pass, driven by live preview feedback ("dim, pillarboxed, console noise"):
+
+- **Backing store = full viewport at device pixels** (both GLimp layers): unless `r_mode -1`
+  is pinned, `GLimp_Init` sizes the canvas to `innerWidth×innerHeight×devicePixelRatio` under
+  a ~4 MP pixel budget (`?ss=` scales it; hard 8 MP ceiling). Replaces the old default-mode
+  gate that was mismatched per game (fired at `r_mode==3` Wolf / `==4` JK), which pinned
+  **Wolf:ET to 800×600 and JK2 to 640×480** CSS-stretched, and always forced 4:3 pillarboxing.
+  3D is aspect-correct (`fov_y = atan2(height, width/tan(fov_x/2))` in every cgame); the
+  640×480-projected 2D HUD stretches, as these engines did on real widescreen in-period.
+- **Debounced resize → vid_restart** (300 ms, >6 % change): window/DPR changes re-init video
+  through the proven vid_restart path (the GLEmulation re-init block exists precisely for it).
+- **MSAA on** (`attrs.antialias = TRUE`, default-framebuffer) + **anisotropic** ext activated,
+  `glConfig.anisotropicAvailable/maxAnisotropy` filled (consumed by Wolf:ET `GL_TextureAnisotropy`
+  and JK's upload path; RTCW's renderer never applies it — cvar present but inert there).
+- **Hidden tabs keep ticking**: `visibilitychange` swaps the main loop to
+  `EM_TIMING_SETTIMEOUT(50)` while hidden and back to RAF when visible. Before this, RAF
+  stopping froze the engine entirely — MP netchan died on a tab switch and loads stalled
+  (also the reason headless/occluded CDP tabs appeared to hang at "Awaiting gamestate").
+- **Audio**: the AudioContext now runs at the **device rate** (`latencyHint:'playback'`),
+  reusing a page-precreated context from the launcher's click gesture (starts un-suspended);
+  requesting 22050 had made the browser resample every scheduled buffer. Ring copy is now a
+  wrap-split bulk pass (≤2 contiguous segments, no per-sample modulo); peak probe sparse.
+- **Brightness (the "dim RTCW" report)**: no gamma ramp in the browser means the overbright
+  pipeline under-lights everything. Pages now boot with `r_overBrightBits 0`,
+  `r_mapOverBrightBits 2`, `r_intensity 1.3`, `r_gamma 1.2` (all latched, baked at texture/
+  lightmap upload). Page fallback: `?bright=N` CSS filter.
+- **Pages**: tuned boot config (`com_maxfps 125`, `r_picmip 0`, trilinear, aniso, Hor+
+  `cg_fov` clamped to [90,121]); any `?r_*/cg_*/com_*/s_*/cl_*=v` becomes a trailing `+set`;
+  engine output goes to a 2000-line ring (console clean; fatals still `console.error`);
+  `?debug` log panel with download; `storage.persist()`; `webglcontextlost` → sync + reload.

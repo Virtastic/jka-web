@@ -19,15 +19,26 @@
 static short *idt3_dmaBuffer=NULL; static volatile int idt3_dmaPos=0; static qboolean idt3_sndInited=qfalse;
 EM_JS(int, idt3_jksnd_start,(short *bufPtr,int samples,int channels,int speed,int *posPtr,double ahead,int chunk,int tickMs),{
   try{ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return 0;
-    var ctx=new AC({sampleRate:speed,latencyHint:'interactive'}); var rate=ctx.sampleRate|0; if(!rate) return 0;
+    /* JK's MP3 music decoder only converts to the classic rates — at a 96kHz device
+       context it fails outright ("MP3ERR: Decoder unable to convert"). Pin the context to
+       44100 (native MP3 rate; the browser resamples to the device internally) instead of
+       reusing the page's device-rate context. 'playback' hint = stall-proof buffers. */
+    var ctx=new AC({sampleRate:44100,latencyHint:'playback'});
+    var rate=ctx.sampleRate|0; if(!rate) return 0;
     var frames=(samples/channels)|0; var base=bufPtr>>1;
     var S={ctx:ctx,pos:0,peak:0,sched:0,started:false,startT:0,timer:0}; Module.__idt3_snd=S;
     function pump(){ if(ctx.state!=='running') return; var now=ctx.currentTime;
       if(!S.started){S.started=true;S.startT=now;S.sched=0;} var horizon=now+ahead;
       while(S.startT+(S.sched+chunk)/rate<=horizon){
-        var buf=ctx.createBuffer(channels,chunk,rate); var peak=S.peak;
+        var buf=ctx.createBuffer(channels,chunk,rate); var inv=1/32768;
+        /* wrap-split bulk copy: <=2 contiguous ring segments, no per-sample modulo */
         for(var c=0;c<channels;c++){ var ch=buf.getChannelData(c);
-          for(var i=0;i<chunk;i++){ var fr=(S.sched+i)%frames; var v=HEAP16[base+fr*channels+c]/32768; ch[i]=v; var a=v<0?-v:v; if(a>peak)peak=a; } }
+          var idx=0,rem=chunk,fr=S.sched%frames;
+          while(rem>0){ var n=Math.min(rem,frames-fr); var off=base+fr*channels+c;
+            for(var i=0;i<n;i++) ch[idx+i]=HEAP16[off+i*channels]*inv;
+            idx+=n; rem-=n; fr=0; } }
+        var ch0=buf.getChannelData(0),peak=S.peak;
+        for(var p=0;p<chunk;p+=16){ var a=ch0[p]<0?-ch0[p]:ch0[p]; if(a>peak)peak=a; }
         S.peak=peak; var src=ctx.createBufferSource(); src.buffer=buf; src.connect(ctx.destination); src.start(S.startT+S.sched/rate); S.sched+=chunk; }
       var played=Math.floor((now-S.startT)*rate); if(played<0)played=0; S.pos=played; HEAP32[posPtr>>2]=(played%frames)*channels; }
     S.timer=setInterval(pump,tickMs);

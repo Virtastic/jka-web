@@ -80,19 +80,29 @@ void GLimp_Init( void ) {
 	}
 #endif
 
-	// idTech3-web: r_mode 4 (the JK default) is 800x600; the page upscales it (soft/blurry
-	// on modern displays). At the default, render at the real display resolution instead,
-	// keeping 4:3 (these are 4:3-era games). See shared/sys_emscripten/sys_glimp.c for detail.
-	if ( rmode == 4 ) {
-		int rh = EM_ASM_INT({
+	// idTech3-web: unless the user pinned a custom mode (r_mode -1), render at the FULL
+	// viewport at device pixels — real aspect, no 4:3 pillarbox — under a ~4 MP pixel
+	// budget (Module.__idt3_ss scales it for SSAA). Mirrors sys_emscripten/sys_glimp.c;
+	// the old gate (rmode==4) also missed JK2 entirely (its default is 3), pinning it to
+	// a CSS-stretched 640x480.
+	if ( rmode != -1 ) {
+		int packed = EM_ASM_INT({
 			var dpr = window.devicePixelRatio || 1;
-			var vh = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 768;
-			var r = Math.round(vh * dpr);
-			if ( r > 1200 ) r = 1200;
-			if ( r < 480 ) r = 480;
-			return r;
+			var de = document.documentElement;
+			var vw = window.innerWidth  || (de && de.clientWidth)  || 1280;
+			var vh = window.innerHeight || (de && de.clientHeight) || 720;
+			var ss = (typeof Module !== 'undefined' && Module.__idt3_ss > 0) ? Module.__idt3_ss : 1;
+			var w = Math.max(320, Math.round(vw * dpr * ss));
+			var h = Math.max(240, Math.round(vh * dpr * ss));
+			var maxPix = Math.min(4.0e6 * ss * ss, 8.0e6);
+			var scale = Math.sqrt(Math.min(1, maxPix / (w * h)));
+			w = Math.max(320, (Math.floor(w * scale) >> 1) << 1);
+			h = Math.max(240, (Math.floor(h * scale) >> 1) << 1);
+			return (w << 16) | h;
 		});
-		w = ( rh * 4 ) / 3; h = rh; aspect = (float)w / (float)h;
+		w = ( packed >> 16 ) & 0xffff;
+		h = packed & 0xffff;
+		aspect = (float)w / (float)h;
 	}
 	emscripten_webgl_init_context_attributes( &attrs );
 	// WebGL1, NOT WebGL2. These are fixed-function renderers, so they depend on
@@ -103,7 +113,8 @@ void GLimp_Init( void ) {
 	// Wolfenstein layer already learned — see sys_emscripten/sys_glimp.c.
 	attrs.majorVersion = 1; attrs.minorVersion = 0;
 	attrs.alpha = EM_FALSE; attrs.depth = EM_TRUE; attrs.stencil = EM_TRUE;
-	attrs.antialias = EM_FALSE; attrs.powerPreference = EM_WEBGL_POWER_PREFERENCE_HIGH_PERFORMANCE;
+	attrs.antialias = EM_TRUE;   // default-framebuffer MSAA — free edge quality
+	attrs.powerPreference = EM_WEBGL_POWER_PREFERENCE_HIGH_PERFORMANCE;
 	attrs.enableExtensionsByDefault = EM_TRUE;
 	glCtx = emscripten_webgl_create_context( CANVAS, &attrs );
 	if ( glCtx <= 0 ) { IDT3_RI_ERROR( ERR_FATAL, "GLimp_Init: no WebGL1 context (%d)\n", (int)glCtx ); return; }
@@ -285,7 +296,34 @@ static EM_BOOL OnWheel( int t, const EmscriptenWheelEvent *e, void *u ) {
 	Sys_QueEvent( 0, SE_KEY, k, qfalse, 0, NULL );
 	return EM_TRUE;
 }
+// ==========================================================================
+// Window resize → debounced vid_restart, and hidden-tab main-loop pacing.
+// Mirrors shared/sys_emscripten/sys_glimp.c (see it for the full rationale).
+// ==========================================================================
+void Cbuf_AddText( const char *text );   // qcommon (same binary)
+
+static double s_resizeAt = 0;
+static qboolean s_resizePending = qfalse;
+
+static EM_BOOL OnResize( int t, const EmscriptenUiEvent *e, void *u ) {
+	s_resizeAt = emscripten_get_now();
+	s_resizePending = qtrue;
+	return EM_FALSE;
+}
+static EM_BOOL OnVisibility( int t, const EmscriptenVisibilityChangeEvent *e, void *u ) {
+	// Hidden tabs stop RAF → the engine freezes entirely. Tick on setTimeout while hidden.
+	if ( e->hidden ) emscripten_set_main_loop_timing( EM_TIMING_SETTIMEOUT, 50 );
+	else             emscripten_set_main_loop_timing( EM_TIMING_RAF, 1 );
+	// set_main_loop_timing doesn't re-kick the loop; the previously-queued RAF would be the
+	// next tick and never fires when hidden. pause+resume invalidates it and reschedules.
+	emscripten_pause_main_loop();
+	emscripten_resume_main_loop();
+	return EM_FALSE;
+}
+
 void IN_Init( void ) {
+	emscripten_set_resize_callback( EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_FALSE, OnResize );
+	emscripten_set_visibilitychange_callback( NULL, EM_FALSE, OnVisibility );
 	emscripten_set_keydown_callback( EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, OnKey );
 	emscripten_set_keyup_callback( EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, OnKey );
 	emscripten_set_mousemove_callback( CANVAS, NULL, EM_TRUE, OnMove );
@@ -295,7 +333,27 @@ void IN_Init( void ) {
 	mouseActive = qtrue;
 }
 void IN_Shutdown( void ) { mouseActive = qfalse; }
-void IN_Frame( void ) { }
+void IN_Frame( void ) {
+	// Debounced resize → vid_restart (skip when the user pinned r_mode -1).
+	if ( s_resizePending && emscripten_get_now() - s_resizeAt > 300.0 ) {
+		s_resizePending = qfalse;
+#ifdef IDT3_JKA
+		if ( IDT3_RI_CVARGET( "r_mode", "4", 0 )->integer != -1 ) {
+#else
+		if ( IDT3_RI_CVARGET( "r_mode", "3", 0 )->integer != -1 ) {
+#endif
+			int vw = EM_ASM_INT({ var d = window.devicePixelRatio || 1; return Math.round((window.innerWidth || 1280) * d); });
+			int vh = EM_ASM_INT({ var d = window.devicePixelRatio || 1; return Math.round((window.innerHeight || 720) * d); });
+			float dw = (float)vw / (float)glConfig.vidWidth;
+			float dh = (float)vh / (float)glConfig.vidHeight;
+			int pix = glConfig.vidWidth * glConfig.vidHeight;
+			if ( dw < 0.94f || ( dw > 1.06f && pix < 3900000 )
+			  || dh < 0.94f || ( dh > 1.06f && pix < 3900000 ) ) {
+				Cbuf_AddText( "vid_restart\n" );
+			}
+		}
+	}
+}
 void IN_Activate( void ) { }
 
 // ==========================================================================
@@ -306,6 +364,15 @@ void IN_Activate( void ) { }
 // Entry point
 // ==========================================================================
 static void Sys_Frame( void ) { IN_Frame(); Com_Frame(); }
+
+static void Sys_ApplyInitialTiming( void *unused ) {
+	EmscriptenVisibilityChangeEvent v;
+	if ( emscripten_get_visibility_status( &v ) == EMSCRIPTEN_RESULT_SUCCESS && v.hidden ) {
+		emscripten_set_main_loop_timing( EM_TIMING_SETTIMEOUT, 50 );
+		emscripten_pause_main_loop();
+		emscripten_resume_main_loop();
+	}
+}
 extern "C" EMSCRIPTEN_KEEPALIVE void idt3_pump_frame( void ) { Sys_Frame(); }
 
 int main( int argc, char **argv ) {
@@ -316,6 +383,9 @@ int main( int argc, char **argv ) {
 	}
 	Com_Init( commandLine );
 	IN_Init();
+	// Tabs that START hidden never get a visibilitychange event — one async tick after the
+	// loop exists, apply setTimeout pacing + pause/resume (see Wolf sys_main.c for detail).
+	emscripten_async_call( Sys_ApplyInitialTiming, NULL, 0 );
 	emscripten_set_main_loop( Sys_Frame, 0, 1 );
 	return 0;
 }

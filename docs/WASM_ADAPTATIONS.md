@@ -5014,3 +5014,90 @@ An unlatched counter tracks a moving target; a first-latched counter tracks the 
 the question actually needs is the group that is still incomplete at the end -- identified at the
 end, not sampled during the run. Several recent measurements are weaker than they looked for this
 reason, and are marked accordingly above.
+
+### The cgame per-map reset (`iCGResetCount`): a fifth instance of the persistent-static class
+
+`cg_main.cpp` guards the per-map cgame reset with a counter, and Raven's own comment states the
+assumption it rests on:
+
+```c
+iCGResetCount++;
+if (iCGResetCount == 1)            // "this will only equal 1 first time,
+    qbVidRestartOccured = qfalse;  //  after each vid_restart it just gets higher."
+if (!qbVidRestartOccured)
+    CG_Init_CG();
+```
+
+The counter is expected to be fresh on every DLL load. On PC the game module -- which in SP contains
+cgame too -- is unloaded per map, so it restarts at 0, reaches 1, and the reset runs; a `vid_restart`
+*within* a level does not unload it, the counter climbs, and the reset is correctly skipped so the
+scrolling text crawl survives. Our side module persists, so the counter never restarted: the second
+map load in a session saw 2, left `qbVidRestartOccured` true, and skipped both resets that flag
+guards -- `CG_Init_CG()`'s memset of `cg`, and `CGCam_Init()`'s memset of `client_camera`
+(`CGCam_Init` is called unconditionally from `CG_Init` but gates its own memset on the same flag).
+
+Fixed by clearing the counter in `ShutdownGame()`, which runs on level change and **not** on
+`vid_restart` -- exactly when PC would have unloaded the DLL. `CG_Shutdown()` would have been the
+wrong place: `CL_ShutdownCGame` is called by both paths, so resetting there would also fire on
+`vid_restart` and lose the crawl.
+
+Verified by probe: `iCGResetCount` reads 1 at `CG_GameStateReceived` on both the first and second
+load of a session (it read 2 on the second before the change), at one address throughout.
+
+**Scope, stated plainly: this does not fix the console-only menu defect.** The reproducer still
+fails with the change in place, so stale cgame reset state is not its cause. The fix is kept because
+it restores a documented invariant and is independently verified, not because it resolves that bug.
+
+### The menu defect: what is now ruled out, and two earlier claims retracted
+
+Sharper statement of the defect, from an in-module instrumentation ring rather than log scraping.
+On a second `devmap` of the map already running, the intro script (owner 558) issues exactly
+
+```
+ENABLE, FADE, ZOOM, MOVE, PAN     all at cg.time=1682, owner 558
+```
+
+and then nothing. `camera( DISABLE )` -- which on a healthy load a *different* script (owner 353)
+issues about 15s in -- is never requested. `in_camera` stays true, `GameAllowedToSaveHere()` returns
+false, `UI_SetActiveMenu` returns at its first line, ESC does nothing, and the player stays frozen at
+the origin. The intro script itself behaves identically on both loads; it is the scripts that follow
+it that never run.
+
+Eliminated this round, each by measurement:
+
+- **Cross-manager completion routing.** Happens in the passing run too; the owning manager does
+  receive the id. (Above.)
+- **The `static gentity_t *marker = G_Spawn()` in `NAV_FindClosestWaypointForPoint`.** A genuine
+  latent Raven bug -- spawned once, freed every call, and the sibling overload twenty lines below
+  omits the `static` -- but instrumented `calls=0` on this map, so it is not this defect. Worth
+  fixing on its own merits; not fixed here, and not claimed as fixed.
+- **The reference-tag table.** `TAG_Init()` runs from `ShutdownGame`, confirmed in the log.
+- **A duplicate module instance.** `&in_camera` printed from the cgame writer and the game reader in
+  the same run gives one address, on both loads. This retracts the claim recorded in
+  `verify-menu.mjs` (now corrected in place) that `ge` pointed at an instance whose statics were not
+  the ones gameplay updates.
+- **An impatient test.** 48 ESC attempts over ~240s, against a ~70s intro; `in_camera` never clears.
+
+**Retraction.** The chain recorded earlier -- "stopped at a task-group wait, group holds exactly one
+navigation task, `done=0 of=1`" -- was never evidence of a defect. A control dump on the *healthy*
+first load shows **more** stalled nav groups (3) than the failing reload (1), same NPCs, same
+`done=0/1`, same "issued". A patrolling NPC waiting at a node is supposed to leave its group wait
+outstanding. Several rounds of work rested on reading that state as pathological.
+
+### Instrumentation rules earned here
+
+- **Measure terminal state, not live counters.** Stalling is the normal case; only the group still
+  incomplete when the run *ends* is the defect. An unlatched counter tracks a moving target, a
+  first-latched counter tracks the wrong one.
+- **Always run the healthy control.** "A stalled group exists" is meaningless without it; here the
+  control inverted the conclusion outright.
+- **Record order in memory, not through the console.** Reading transition order out of the filtered
+  log capture produced a sequence ending in DISABLE while `in_camera` was demonstrably true --
+  impossible, since `CGCam_Enable` holds the only write of true. A 32-entry in-module ring, printed
+  once at the end, agreed with `in_camera` immediately.
+- **A ring or sample must say whether it wrapped**, and a capped print must not be read as the
+  population -- a read probe capped at 6 fired all six early and said nothing about the failure.
+- **`extern "C"` blocks change function linkage.** Declaring `extern int f(void);` inside an
+  `extern "C"` function looks for the unmangled name while the C++ definition is mangled: the build
+  is clean and the module traps at the first call, silently voiding the run. Variables are unaffected,
+  which is why the ring arrays worked and the accessor did not. Smoke-test after every probe edit.

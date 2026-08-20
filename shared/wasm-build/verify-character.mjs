@@ -2,13 +2,22 @@
 // in front of the camera — the direct test of the MDS character-render fixes.
 // Usage: node _thirdperson.mjs <port> <map> <prefix>
 import { execFile } from 'node:child_process';
+import { CHROME, tmpProfile } from './chrome.mjs';
 import http from 'node:http';
 import fs from 'node:fs';
-const PORT = process.argv[2] || '8790', MAP = process.argv[3] || 'escape1', PREFIX = process.argv[4] || '/tmp/tp';
+// idTech3-web: this harness was macOS-only and had never run on Windows -- it hardcoded the
+// /Applications Chrome path and /tmp for both the screenshot prefix and the profile dir, and
+// shelled out to `rm -rf`. It now resolves Chrome and the temp dir the same way every other
+// harness here does (chrome.mjs), so a failure means the engine, not the platform.
+const PORT = process.argv[2] || '8790', MAP = process.argv[3] || 'escape1',
+      PREFIX = process.argv[4] || tmpProfile('idt3-tp');
 const CDP = 9600 + (parseInt(PORT,10) % 100);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const udir = `/tmp/idt3-tp-${PORT}`; execFile('rm', ['-rf', udir]);
-const chrome = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+// Key the profile by pid as well as port: a fixed name keeps a SingletonLock from any crashed
+// run and then every later Chrome exits instantly, which reads as an engine failure.
+const udir = tmpProfile(`idt3-tp-${PORT}-${process.pid}`);
+fs.rmSync(udir, { recursive: true, force: true });
+const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle', '--enable-unsafe-swiftshader',
   '--autoplay-policy=no-user-gesture-required', '--no-first-run', '--window-size=1280,720',
   '--hide-scrollbars', `--user-data-dir=${udir}`, 'about:blank']);

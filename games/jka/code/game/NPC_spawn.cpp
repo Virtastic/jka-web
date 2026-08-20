@@ -1745,14 +1745,23 @@ gentity_t *NPC_Spawn_Do( gentity_t *ent, qboolean fullSpawnNow )
 	// in_camera set and the in-game menu shut. JKA has that identical fast-forward
 	// (icarus/Sequencer.cpp) and the identical deferred spawn.
 	//
-	// STATUS, stated honestly: this is LATENT here, not an observed failure. The JK2 reproducer is
-	// measured and documented (kejim_post: 28 skipped affect blocks on a warm reload, 0 on a cold
-	// one); JKA passed same-map reloads on t1_sour, t1_danger, t2_rogue and t3_bounty, and the one
-	// failing map, yavin1, fails for an unrelated reason (it auto-advances to yavin1b mid-test, so
-	// verify-menu's single-map assumptions do not hold -- its reload phase reports PASS). This is
-	// applied because the code shape and the silent failure mode are identical and the call is
-	// idempotent, not because the bug was seen here. Raven's own fullSpawnNow path, which calls
-	// NPC_Begin immediately, suggests they were aware of the ordering hazard.
+	// STATUS: precautionary. MEASURED, with this call removed and a probe on the ParseAffect
+	// failure path, the hazard does not fire anywhere in JKA that was tested:
+	//
+	//   34-map campaign sweep, sequential in one session (so 33 warm loads):  0 skipped affects
+	//   same-map reload, t1_sour:                                             0
+	//   same-map reload, t2_rogue:                                            0
+	//
+	// So this fixes nothing observable on this machine. It is kept because the JK2 reproducer
+	// (kejim_post: 28 skipped affect blocks on a warm reload, 0 on a cold one) shows the mechanism
+	// is real in this engine family, and there the race was decided by roughly 150ms of client
+	// load time -- how fast the player's spawn-point targets fire relative to NPC_Begin. That
+	// margin is a property of the machine and the asset cache, not of the map, so "0 here" is not
+	// "0 anywhere". The call is idempotent and costs nothing, and Raven's own fullSpawnNow path --
+	// which calls NPC_Begin immediately -- suggests awareness of the ordering hazard.
+	//
+	// If this ever needs revisiting: the control is one line to reproduce -- delete this call,
+	// rebuild, and put a print on the `stream_sequencer == NULL` branch in icarus/Sequencer.cpp.
 	Quake3Game()->InitEntity( newent );
 
 	if ( fullSpawnNow )

@@ -5206,3 +5206,43 @@ check. Its sibling failure, "CDP key events are not reaching the engine key syst
 contradicted two lines above by ESC opening the menu after 9 presses, so that probe is unreliable on
 this map too. Pre-existing and unrelated to any change here; `yavin1` and `yavin1b` both load and
 reach gameplay cleanly in the sweep.
+
+### The JKA hazard, now measured rather than asserted
+
+The `InitEntity`-at-spawn change in JKA was applied on the strength of the code shape matching JK2's.
+That is an argument, not evidence, so it was measured: the call was removed from the working tree, a
+print was put on the `stream_sequencer == NULL` branch of `icarus/Sequencer.cpp`, and the result was
+
+```
+34-map campaign sweep, sequential in one session (so 33 warm loads):  0 skipped affects
+same-map reload, t1_sour:                                             0
+same-map reload, t2_rogue:                                            0
+```
+
+**The hazard does not fire anywhere in JKA that was tested.** The change is kept, and is labelled
+precautionary in the source rather than presented as a fix, because the JK2 reproducer shows the
+mechanism is real in this engine family and there the race was decided by roughly 150ms of client
+load time -- how fast the player's spawn-point targets fire relative to `NPC_Begin`. That margin is a
+property of the machine and the asset cache, not of the map, so "0 here" is not "0 anywhere". The
+control is one line to reproduce if it ever needs revisiting.
+
+#### A void control, caught by its own guard
+
+The first attempt at that control measured nothing, and is worth recording because the failure mode
+is subtle. The JKA change had already been **committed**, so `git stash push <file>` on an unmodified
+file stashed nothing -- and because the confirmation echo was chained with `&&`, it still printed
+"JKA fix stashed". The sweep then ran against a build that contained the fix, and returned the
+expected 0.
+
+It was caught only because the run printed the fix's presence alongside the result: it read `1`, not
+`0`. Same shape as the earlier "a failed preparation step must stop the pipeline" entry, and the
+seventh time this session an instrument rather than the engine produced the interesting number.
+
+Rules earned, on top of the earlier ones:
+
+- **A control run must assert the thing it removed is actually gone**, and print that assertion next
+  to the result. `git stash` is not an assertion: it is a no-op on a file whose change is already
+  committed.
+- **A null result is only evidence if the instrument is proven live.** Print probe-present and
+  subject-absent together, every run.
+- Never put a state confirmation behind `&&` from the command whose success it is meant to verify.

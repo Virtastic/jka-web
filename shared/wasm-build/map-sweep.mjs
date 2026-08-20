@@ -90,14 +90,36 @@ for (const map of MAPS) {
     const re = new RegExp(process.env.SWEEP_GREP, 'i');
     for (const l of lines.filter(l => re.test(l))) console.log('      > ' + l.trim());
   }
-  results.push({ map, loaded, active, noise });
+  // A skipped affect() block is a HARD failure, not noise.
+  //
+  // ParseAffect fast-forwards over an affect block whose target it cannot resolve and returns
+  // SEQ_OK, so script the map author wrote silently does not run. That is what shut the in-game
+  // menu: a cutscene dropped its actor blocks and never reached camera( DISABLE ). Registering
+  // NPCs at spawn narrows the window that causes it but does not close it - the registration
+  // still lands a few frames in, not at parse time.
+  //
+  // THIS SWEEP DOES NOT REPRODUCE THAT RACE - measured: 0 skips here even with the fix
+  // removed, because loading each map once with `map <name>` does not recreate the warm-reload
+  // timing. verify-icarus-affect.mjs is the actual guard, and it is proven in both directions
+  // (28 skips without the fix, 0 with it). This check is a cheap net for anywhere else it might
+  // surface, not the guarantee. The engine prints the warning unconditionally
+  // (icarus/Sequencer.cpp), not behind the ICARUS debug cvar, so both can rely on seeing it.
+  const affectSkips = lines.filter(l => /invalid affect\(\) target/i.test(l));
+  results.push({ map, loaded, active, noise, affectSkips });
+  if (affectSkips.length) {
+    console.log(`      !! ${affectSkips.length} SKIPPED affect() block(s) - script did not run:`);
+    for (const l of affectSkips.slice(0, 4)) console.log('         ' + l.trim());
+  }
   const [hb, tb] = (await mem()).split(':').map(Number);
   console.log(`${loaded && active ? 'OK  ' : 'FAIL'} ${map.padEnd(14)} loaded=${loaded} active=${active} issues=${noise.length}` + ` heap=${(hb/1048576).toFixed(1)}MB table=${tb}`);
   for (const n of noise.slice(0, 6)) console.log(`        ${n}`);
 }
-const bad = results.filter(r => !(r.loaded && r.active));
+const bad = results.filter(r => !(r.loaded && r.active) || r.affectSkips.length);
 console.log(`\n===== ${results.length} maps, ${results.length - bad.length} OK, ${bad.length} FAILED =====`);
 if (bad.length) console.log('failed: ' + bad.map(r => r.map).join(', '));
+const skipped = results.filter(r => r.affectSkips.length);
+if (skipped.length)
+  console.log('affect() blocks skipped on: ' + skipped.map(r => `${r.map} (${r.affectSkips.length})`).join(', '));
 const allNoise = [...new Set(results.flatMap(r => r.noise))];
 console.log(`distinct engine complaints across the sweep: ${allNoise.length}`);
 for (const n of allNoise) console.log('  ' + n);

@@ -9,7 +9,7 @@
 // Reports per window so a trend is visible rather than an average that hides it.
 //
 //   node soak.mjs <httpPort> "<+args>" [minutes] [windowSec]
-import { CHROME, tmpProfile } from './chrome.mjs';
+import { CHROME, tmpProfile, guardChrome } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 
@@ -23,6 +23,7 @@ const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--no-first-run',
   '--window-size=1280,720', `--user-data-dir=${tmpProfile('idt3-soak-' + process.pid)}`, 'about:blank']);
+guardChrome(chrome, 'soak.mjs');
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => {
   let d = ''; r.on('data', x => d += x); r.on('end', () => res(JSON.parse(d)));
 }).on('error', rej));
@@ -62,7 +63,7 @@ const state = async () => { const v = await evalv(`(function(){try{return Module
 
 let ready = false;
 for (let i = 0; i < 180; i++) { await sleep(1000); if ((await state() & 0xff) === CA_ACTIVE) { ready = true; break; } }
-if (!ready) { console.log('FAIL: never reached gameplay'); ws.close(); chrome.kill(); process.exit(1); }
+if (!ready) { console.log('FAIL: never reached gameplay'); ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(1); }
 for (const t of ['mousePressed', 'mouseReleased'])
   await S('Input.dispatchMouseEvent', { type: t, x: 640, y: 360, button: 'left', clickCount: 1, buttons: 1 });
 await sleep(3000);
@@ -110,4 +111,4 @@ console.log(`\n===== soak: ${MINUTES} min =====`);
 console.log(`fps first third ${avg(first).toFixed(1)} -> last third ${avg(last).toFixed(1)}  (${drop >= 0 ? 'down' : 'up'} ${Math.abs(drop).toFixed(1)}%)`);
 console.log(`heap grew ${(heapGrew / 1048576).toFixed(1)}MB, table grew ${tableGrew} entries`);
 console.log(drop < 10 && heapGrew === 0 && tableGrew === 0 ? 'STABLE' : 'CHECK THE TREND ABOVE');
-ws.close(); chrome.kill(); process.exit(0);
+ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(0);

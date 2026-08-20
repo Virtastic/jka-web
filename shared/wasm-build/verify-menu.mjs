@@ -12,7 +12,7 @@
 // own route to the same place.
 //
 //   node verify-menu.mjs <httpPort> <map>
-import { CHROME, tmpProfile } from './chrome.mjs';
+import { CHROME, tmpProfile, guardChrome } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 
@@ -24,6 +24,7 @@ const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--no-first-run',
   '--window-size=1280,720', `--user-data-dir=${tmpProfile('idt3-menu-' + process.pid)}`, 'about:blank']);
+guardChrome(chrome, 'verify-menu.mjs');
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => {
   let d = ''; r.on('data', x => d += x); r.on('end', () => res(JSON.parse(d)));
 }).on('error', rej));
@@ -157,7 +158,7 @@ if (!DIRECT) {
 if (!DIRECT) await exec(`devmap ${MAP}`);
 const CA_ACTIVE = 7;
 for (let i = 0; i < 180; i++) { await sleep(1000); if ((await st()) === CA_ACTIVE) break; }
-if ((await st()) !== CA_ACTIVE) { console.log('FAIL: devmap from the menu never reached gameplay'); ws.close(); chrome.kill(); process.exit(1); }
+if ((await st()) !== CA_ACTIVE) { console.log('FAIL: devmap from the menu never reached gameplay'); ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(1); }
 // Wait for the world to actually be drawn: CA_ACTIVE happens long before that on maps with an
 // opening sequence (JKA yavin1 draws one quad per frame for ninety seconds first).
 const drawRate = async () => {
@@ -205,7 +206,7 @@ console.log(`camera released      : ${settled} (view drift ${drift.toFixed(1)} u
 if (!settled) {
   console.log(`FAIL: the scripted camera never released on ${MAP}; the engine correctly refuses the`);
   console.log('      in-game menu while it runs, so menu behaviour cannot be judged here');
-  ws.close(); chrome.kill(); process.exit(1);
+  ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(1);
 }
 
 const playKc = await kc();
@@ -461,4 +462,4 @@ if (process.env.SECOND_MAP) {
 }
 
 console.log(ok ? `\nPASS: menus display and respond (${MAP})` : `\nFAIL: ${MAP}`);
-ws.close(); chrome.kill(); process.exit(ok ? 0 : 1);
+ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(ok ? 0 : 1);

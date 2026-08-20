@@ -20,7 +20,7 @@
 //   node verify-cinematic.mjs <httpPort> <name[,name...]> [secondsEach]
 //     e.g. node verify-cinematic.mjs 8794 ja01 25
 //          node verify-cinematic.mjs 8794 ja01,ja02,openinglogos 12
-import { CHROME, tmpProfile } from './chrome.mjs';
+import { CHROME, tmpProfile, guardChrome } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 
@@ -37,6 +37,7 @@ const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--no-first-run',
   '--window-size=1280,720', `--user-data-dir=${tmpProfile('idt3-cin-' + process.pid)}`, 'about:blank']);
+guardChrome(chrome, 'verify-cinematic.mjs');
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => {
   let d = ''; r.on('data', x => d += x); r.on('end', () => res(JSON.parse(d)));
 }).on('error', rej));
@@ -78,7 +79,7 @@ const exec = c => evalv(`(function(){try{Module.ccall('idt3_exec_cmd',null,['str
 // A cinematic plays from the menu, so CA_ACTIVE is not required here — only a live client.
 let up = false;
 for (let i = 0; i < 90; i++) { await sleep(1000); if ((await state()) >= 0) { up = true; break; } }
-if (!up) { console.log('FAIL: engine never came up'); ws.close(); chrome.kill(); process.exit(1); }
+if (!up) { console.log('FAIL: engine never came up'); ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(1); }
 for (const t of ['mousePressed', 'mouseReleased'])
   await S('Input.dispatchMouseEvent', { type: t, x: 640, y: 360, button: 'left', clickCount: 1, buttons: 1 });
 await sleep(2000);
@@ -175,4 +176,4 @@ console.log(`\n===== cinematics: ${results.length - bad.length}/${results.length
 for (const b of bad) console.log(`  FAIL ${b.NAME}: ${b.why}`);
 if (silent.length) console.log(`  no audible audio (check against retail): ${silent.map(r => r.NAME).join(', ')}`);
 console.log(bad.length ? 'FAIL' : 'PASS: every cinematic decoded and animated');
-ws.close(); chrome.kill(); process.exit(bad.length ? 1 : 0);
+ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(bad.length ? 1 : 0);

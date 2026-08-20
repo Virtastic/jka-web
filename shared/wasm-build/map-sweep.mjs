@@ -10,7 +10,7 @@
 //
 // Per map it prints: control state from idt3_client_state(), plus every ^1/^3-coloured or
 // "couldn't/failed/not found" line the engine emitted while that map was loading.
-import { CHROME, tmpProfile } from './chrome.mjs';
+import { CHROME, tmpProfile, guardChrome } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 
@@ -26,6 +26,7 @@ const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--no-first-run',
   '--window-size=1280,720', `--user-data-dir=${tmpProfile('idt3-sweep-' + process.pid)}`, 'about:blank']);
+guardChrome(chrome, 'map-sweep.mjs');
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => {
   let d = ''; r.on('data', x => d += x); r.on('end', () => res(JSON.parse(d)));
 }).on('error', rej));
@@ -100,4 +101,4 @@ if (bad.length) console.log('failed: ' + bad.map(r => r.map).join(', '));
 const allNoise = [...new Set(results.flatMap(r => r.noise))];
 console.log(`distinct engine complaints across the sweep: ${allNoise.length}`);
 for (const n of allNoise) console.log('  ' + n);
-ws.close(); chrome.kill(); process.exit(bad.length ? 1 : 0);
+ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(bad.length ? 1 : 0);

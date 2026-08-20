@@ -2,7 +2,7 @@
 // in front of the camera — the direct test of the MDS character-render fixes.
 // Usage: node _thirdperson.mjs <port> <map> <prefix>
 import { execFile } from 'node:child_process';
-import { CHROME, tmpProfile } from './chrome.mjs';
+import { CHROME, tmpProfile, guardChrome } from './chrome.mjs';
 import http from 'node:http';
 import fs from 'node:fs';
 // idTech3-web: this harness was macOS-only and had never run on Windows -- it hardcoded the
@@ -21,6 +21,7 @@ const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle', '--enable-unsafe-swiftshader',
   '--autoplay-policy=no-user-gesture-required', '--no-first-run', '--window-size=1280,720',
   '--hide-scrollbars', `--user-data-dir=${udir}`, 'about:blank']);
+guardChrome(chrome, 'verify-character.mjs');
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => { let d=''; r.on('data',x=>d+=x); r.on('end',()=>res(JSON.parse(d))); }).on('error', rej));
 let pg=null; for (let i=0;i<25 && !pg;i++){ await sleep(1000); try { pg=(await get('/json')).find(x=>x.type==='page'); } catch {} }
 const { default: WS } = await import('ws');
@@ -46,4 +47,4 @@ await sleep(2500); await shot('a');
 await sleep(3500); await shot('b');
 await sleep(3500); await shot('c');
 console.log('recent logs:', logs.slice(-5).join(' | '));
-ws.close(); chrome.kill(); process.exit(0);
+ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(0);

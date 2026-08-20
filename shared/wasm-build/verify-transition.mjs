@@ -19,7 +19,7 @@
 //     what differs — measured 16383 weapons carried by a transition vs 3 on a plain map.)
 //
 //   node verify-transition.mjs <httpPort> <mapA> <mapB> <mapC>
-import { CHROME, tmpProfile } from './chrome.mjs';
+import { CHROME, tmpProfile, guardChrome } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 
@@ -33,6 +33,7 @@ const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--no-first-run',
   '--window-size=1280,720', `--user-data-dir=${tmpProfile('idt3-trans-' + process.pid)}`, 'about:blank']);
+guardChrome(chrome, 'verify-transition.mjs');
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => {
   let d = ''; r.on('data', x => d += x); r.on('end', () => res(JSON.parse(d)));
 }).on('error', rej));
@@ -135,7 +136,7 @@ let ok = true;
 const fail = m => { ok = false; console.log('   FAIL: ' + m); };
 
 console.log(`\n===== scripted level transition: ${MAP_A} -> ${MAP_B} (maptransition), then ${MAP_C} (map) =====`);
-if (!await settle(MAP_A)) { console.log(`FAIL: ${MAP_A} never reached playable gameplay`); ws.close(); chrome.kill(); process.exit(1); }
+if (!await settle(MAP_A)) { console.log(`FAIL: ${MAP_A} never reached playable gameplay`); ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(1); }
 for (const t of ['mousePressed', 'mouseReleased'])
   await S('Input.dispatchMouseEvent', { type: t, x: 640, y: 360, button: 'left', clickCount: 1, buttons: 1 });
 
@@ -275,4 +276,4 @@ if (errs.length) { ok = false; console.log('  errors during transitions:'); for 
 
 console.log(ok ? `\nPASS: scripted transition carried the player ${MAP_A} -> ${MAP_B}, and plain map cleared it`
                : `\nFAIL: ${MAP_A} -> ${MAP_B}`);
-ws.close(); chrome.kill(); process.exit(ok ? 0 : 1);
+ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(ok ? 0 : 1);

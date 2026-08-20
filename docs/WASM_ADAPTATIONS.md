@@ -5246,3 +5246,35 @@ Rules earned, on top of the earlier ones:
 - **A null result is only evidence if the instrument is proven live.** Print probe-present and
   subject-absent together, every run.
 - Never put a state confirmation behind `&&` from the command whose success it is meant to verify.
+
+### Harness watchdog: a dead run must not look like a slow one
+
+Two full-campaign sweeps in one session sat wedged for 33 minutes each. Both times the cause was
+Chrome exiting early -- once from a stale profile lock, once from a plain crash -- and both times the
+harness simply waited. Every probe here polls `/json` until a page appears and then blocks on CDP, so
+when Chrome dies those awaits never settle and the run hangs until something outside kills it. From
+the outside that is **indistinguishable from a slow run**, which is why the first one was left alone
+for half an hour before being checked.
+
+`chrome.mjs` now exports `guardChrome(child, label)`, which fails the run immediately with the exit
+code and signal when Chrome dies unexpectedly. It is wired into the long-running probes (`map-sweep`,
+`verify-menu`, `verify-jk-save`, `verify-transition`, `verify-cinematic`, `soak`,
+`verify-character`). Deliberate shutdowns set `globalThis.__idt3_done` first -- every `chrome.kill()`
+site is marked -- so a harness killing its own browser at the end of a passing run is not reported as
+a failure.
+
+Verified by killing Chrome 45s into a `verify-menu` run:
+
+```
+FAIL: verify-menu.mjs exited early (code=1 signal=null) -- the harness would otherwise hang
+      forever waiting for CDP.
+HARNESS_EXIT=3
+```
+
+Exit 3 is distinct from a normal verdict failure (1), so a wedged browser can be told apart from a
+real engine failure in CI output.
+
+`tmpProfile()` also reaps its own directories on exit now, including on SIGINT/SIGTERM. Nothing ever
+removed them: 529 had accumulated before one stale `SingletonLock` began making every later Chrome
+exit instantly, and a sweep later measured **20.4 GB** of them. Only names carrying the current pid
+are reaped, so a concurrently running harness that shares a fixed name is never touched.

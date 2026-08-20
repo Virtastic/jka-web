@@ -13,7 +13,7 @@
 // loses every save the moment they close the tab.
 //
 //   node verify-jk-save.mjs <game> <httpPort> "<+args>" [secPerPhase]
-import { CHROME, tmpProfile } from './chrome.mjs';
+import { CHROME, tmpProfile, guardChrome } from './chrome.mjs';
 // idTech3-web: the profile directory name must be unique per run. It used to be a fixed
 // 'idt3-save-<game>', and a single crashed or killed run leaves a SingletonLock behind that makes
 // every later Chrome exit immediately -- the harness then dies on a null webSocketDebuggerUrl,
@@ -34,6 +34,7 @@ const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--no-first-run',
   '--window-size=1280,720', `--user-data-dir=${tmpProfile('idt3-save-' + GAME + '-' + process.pid)}`, 'about:blank']);
+guardChrome(chrome, 'verify-jk-save.mjs');
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => {
   let d = ''; r.on('data', x => d += x); r.on('end', () => res(JSON.parse(d)));
 }).on('error', rej));
@@ -71,7 +72,7 @@ const boot = async () => {
 };
 
 console.log(`--- phase 1: boot ${GAME} and save ---`);
-if (!await boot()) { console.log('FAIL: never reached CA_ACTIVE on first boot'); ws.close(); chrome.kill(); process.exit(1); }
+if (!await boot()) { console.log('FAIL: never reached CA_ACTIVE on first boot'); ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(1); }
 await sleep(4000);                       // let the map settle before snapshotting it
 console.log('before save: ' + ((await listSaves()) || '(none)'));
 // Wait for the frame to settle as well as CA_ACTIVE: SV_SaveGame_f refuses outright while an
@@ -121,7 +122,7 @@ await evalv('(function(){try{FS.syncfs(false,function(){});return 1;}catch(e){re
 await sleep(3000);
 
 console.log(`--- phase 2: reload the page, then load the save ---`);
-if (!await boot()) { console.log('FAIL: never reached CA_ACTIVE on second boot'); ws.close(); chrome.kill(); process.exit(1); }
+if (!await boot()) { console.log('FAIL: never reached CA_ACTIVE on second boot'); ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(1); }
 const persisted = ((await listSaves()) || '');
 console.log('after reload: ' + (persisted || '(none)'));
 const survived = persisted.includes(SAVENAME);
@@ -133,4 +134,4 @@ console.log(`load reached gameplay: ${loaded ? 'YES' : 'NO'}`);
 
 const pass = wrote && survived && loaded;
 console.log(`\n===== ${GAME} savegame round-trip: ${pass ? 'PASS' : 'FAIL'} =====`);
-ws.close(); chrome.kill(); process.exit(pass ? 0 : 1);
+ws.close(); (globalThis.__idt3_done = true, chrome.kill()); process.exit(pass ? 0 : 1);

@@ -14,10 +14,20 @@ const c = execFile(CHROME, [
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null; for (let i = 0; i < 25 && !pg; i++) { await sleep(1000); try { pg = (await get('/json')).find(x => x.type === 'page'); } catch {} }
+// __idt3_attach_guard: bail out loudly instead of hanging.
+// Measured: a run sat wedged for 33 minutes having printed nothing, because Chrome came up but
+// the debug socket never opened - and the await below has no timeout. guardChrome() only
+// catches Chrome EXITING, not Chrome hanging, so it could not help.
+if (!pg) { console.log('FAIL: no debuggable page appeared'); try { (globalThis.__idt3_done = true, chrome.kill()); } catch {} process.exit(3); }
 const { default: WS } = await import('ws');
 const ws = new WS(pg.webSocketDebuggerUrl); let id = 0;
 const S = (m, p) => new Promise(r => { const i = ++id, h = x => { const j = JSON.parse(x); if (j.id === i) { ws.off('message', h); r(j.result); } }; ws.on('message', h); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
-await new Promise(r => ws.on('open', r)); await S('Runtime.enable', {}); await S('Page.enable', {});
+await new Promise((res, rej) => {
+  const to = setTimeout(() => rej(new Error('CDP socket never opened')), 30000);
+  ws.on('open', () => { clearTimeout(to); res(); });
+  ws.on('error', (e) => { clearTimeout(to); rej(e); });
+}).catch((e) => { console.log('FAIL: ' + e.message);
+  try { (globalThis.__idt3_done = true, chrome.kill()); } catch {} process.exit(3); }); await S('Runtime.enable', {}); await S('Page.enable', {});
 await S('Page.addScriptToEvaluateOnNewDocument', { source: `
   window.__l=[];for(const k of['log','warn','error'])console[k]=((o)=>(...a)=>{try{window.__l.push(a.join(' '))}catch{}o(...a)})(console[k].bind(console));
   window.__raf=0;window.__cpu=[];const _r=window.requestAnimationFrame.bind(window);window.requestAnimationFrame=function(cb){return _r(function(t){window.__raf++;var s=performance.now();var r=cb(t);var e=performance.now();window.__cpu.push(e-s);if(window.__cpu.length>240)window.__cpu.shift();return r;});};

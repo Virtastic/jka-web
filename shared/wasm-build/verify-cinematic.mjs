@@ -43,10 +43,20 @@ const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r =>
 }).on('error', rej));
 let pg = null;
 for (let i = 0; i < 25 && !pg; i++) { await sleep(1000); try { pg = (await get('/json')).find(x => x.type === 'page'); } catch {} }
+// __idt3_attach_guard: bail out loudly instead of hanging.
+// Measured: a run sat wedged for 33 minutes having printed nothing, because Chrome came up but
+// the debug socket never opened - and the await below has no timeout. guardChrome() only
+// catches Chrome EXITING, not Chrome hanging, so it could not help.
+if (!pg) { console.log('FAIL: no debuggable page appeared'); try { (globalThis.__idt3_done = true, chrome.kill()); } catch {} process.exit(3); }
 const { default: WS } = await import('ws');
 const ws = new WS(pg.webSocketDebuggerUrl); let id = 0;
 const S = (m, p) => new Promise(r => { const i = ++id, h = x => { const j = JSON.parse(x); if (j.id === i) { ws.off('message', h); r(j.result); } }; ws.on('message', h); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
-await new Promise(r => ws.on('open', r));
+await new Promise((res, rej) => {
+  const to = setTimeout(() => rej(new Error('CDP socket never opened')), 30000);
+  ws.on('open', () => { clearTimeout(to); res(); });
+  ws.on('error', (e) => { clearTimeout(to); rej(e); });
+}).catch((e) => { console.log('FAIL: ' + e.message);
+  try { (globalThis.__idt3_done = true, chrome.kill()); } catch {} process.exit(3); });
 await S('Runtime.enable', {}); await S('Page.enable', {});
 
 // Downscale the WebGL canvas into a 16x16 2D canvas and return a coarse luma signature. This

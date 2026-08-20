@@ -30,10 +30,20 @@ const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r =>
 }).on('error', rej));
 let pg = null;
 for (let i = 0; i < 25 && !pg; i++) { await sleep(1000); try { pg = (await get('/json')).find(x => x.type === 'page'); } catch {} }
+// __idt3_attach_guard: bail out loudly instead of hanging.
+// Measured: a run sat wedged for 33 minutes having printed nothing, because Chrome came up but
+// the debug socket never opened - and the await below has no timeout. guardChrome() only
+// catches Chrome EXITING, not Chrome hanging, so it could not help.
+if (!pg) { console.log('FAIL: no debuggable page appeared'); try { (globalThis.__idt3_done = true, chrome.kill()); } catch {} process.exit(3); }
 const { default: WS } = await import('ws');
 const ws = new WS(pg.webSocketDebuggerUrl); let id = 0;
 const S = (m, p) => new Promise(r => { const i = ++id, h = x => { const j = JSON.parse(x); if (j.id === i) { ws.off('message', h); r(j.result); } }; ws.on('message', h); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
-await new Promise(r => ws.on('open', r));
+await new Promise((res, rej) => {
+  const to = setTimeout(() => rej(new Error('CDP socket never opened')), 30000);
+  ws.on('open', () => { clearTimeout(to); res(); });
+  ws.on('error', (e) => { clearTimeout(to); rej(e); });
+}).catch((e) => { console.log('FAIL: ' + e.message);
+  try { (globalThis.__idt3_done = true, chrome.kill()); } catch {} process.exit(3); });
 await S('Runtime.enable', {}); await S('Page.enable', {});
 // Capture uncaught page exceptions and console errors. A wasm trap in the game module surfaces
 // here, NOT through Module.printErr -- and the failing same-map reload ends its engine output
@@ -250,12 +260,24 @@ const key = async (code, vk) => { for (const type of ['keyDown', 'keyUp'])
   await S('Input.dispatchKeyEvent', { type, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, key: code === 'F1' ? 'F1' : code, code }); };
 await exec('bind F1 "echo ###IDT3KEYOK"');
 await sleep(1000);
-await key('F1', 112);
-await sleep(2000);
-const kl = (await evalv("String(window.__idt3_dumpLog ? window.__idt3_dumpLog() : '')") || '');
-const keyArrives = kl.includes('###IDT3KEYOK');
-console.log(`key events reach engine: ${keyArrives}`);
-if (!keyArrives) fail('CDP key events are not reaching the engine key system at all');
+// Press it several times, checking after each, instead of pressing once and hoping.
+//
+// A single press made this precondition flaky: measured on yavin1, three identical runs gave
+// PASS, PASS, FAIL, and the FAIL was this check reporting that keys never arrive - two lines
+// above output showing ESC opening the menu after 9 presses with 88.5% of the screen changing.
+// A probe that contradicts the very next assertion is measuring itself, not the engine. Any of
+// a slow bind, a dropped press, or the capped log ring evicting the marker on a busy map will
+// do it, so retry and read the ring promptly after each press.
+const KEY_TRIES = parseInt(process.env.KEY_TRIES || '5', 10);
+let keyArrives = false, keyTry = 0;
+for (; keyTry < KEY_TRIES && !keyArrives; keyTry++) {
+  await key('F1', 112);
+  await sleep(1200);
+  keyArrives = (await evalv("String(window.__idt3_dumpLog ? window.__idt3_dumpLog() : '')") || '')
+    .includes('###IDT3KEYOK');
+}
+console.log(`key events reach engine: ${keyArrives}` + (keyArrives && keyTry > 1 ? ` (after ${keyTry} presses)` : ''));
+if (!keyArrives) fail(`CDP key events are not reaching the engine key system at all (${KEY_TRIES} presses)`);
 
 // --- 3. ESC opens the in-game menu ---------------------------------------
 // RETRY, do not judge on a single press. The engine refuses the in-game menu whenever a

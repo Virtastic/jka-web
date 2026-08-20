@@ -38,7 +38,12 @@ try {
     ws.send(JSON.stringify({ id: mid, method, params }));
   });
   const logs = [];
-  await new Promise(r => ws.on('open', r));
+  await new Promise((res, rej) => {
+  const to = setTimeout(() => rej(new Error('CDP socket never opened')), 30000);
+  ws.on('open', () => { clearTimeout(to); res(); });
+  ws.on('error', (e) => { clearTimeout(to); rej(e); });
+}).catch((e) => { console.log('FAIL: ' + e.message);
+  try { (globalThis.__idt3_done = true, chrome.kill()); } catch {} process.exit(3); });
   await send('Runtime.enable', {});
   ws.on('message', m => {
     const j = JSON.parse(m);

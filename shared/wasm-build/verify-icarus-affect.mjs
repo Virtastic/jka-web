@@ -59,6 +59,11 @@ let pg = null;
 for (let i = 0; i < 25 && !pg; i++) { await sleep(1000); try { pg = (await get('/json')).find((x) => x.type === 'page'); } catch {} }
 if (!pg) { console.log('FAIL: no debuggable page'); process.exit(1); }
 
+// __idt3_attach_guard: bail out loudly instead of hanging.
+// Measured: a run sat wedged for 33 minutes having printed nothing, because Chrome came up but
+// the debug socket never opened - and the await below has no timeout. guardChrome() only
+// catches Chrome EXITING, not Chrome hanging, so it could not help.
+if (!pg) { console.log('FAIL: no debuggable page appeared'); try { (globalThis.__idt3_done = true, chrome.kill()); } catch {} process.exit(3); }
 const { default: WS } = await import('ws');
 const ws = new WS(pg.webSocketDebuggerUrl); let id = 0;
 const S = (m, p) => new Promise((r) => {

@@ -4986,3 +4986,31 @@ ICARUS into JK2 would be neither a one-line change nor faithful to the drop.
 map, and this structural difference is offered as the reason JKA is immune, not as a measured
 mechanism for the JK2 failure. That distinction has been got wrong five times in this
 investigation already.
+
+### Cross-manager completion routing: eliminated, and a flaw in the measurement design
+
+JK2 gives every entity its own `CTaskManager`, and `Completed( id )` searches only that manager's
+groups -- so a completion arriving at the wrong manager could never mark the group complete. That is
+what JKA's central ICARUS instance structurally prevents, making it the obvious candidate. Measured,
+with the pending id latched once so the tallies mean something:
+
+```
+artus_mine (PASS)  groupOwner=94   pend=13  stalls=1345  matchSame=2  matchOther=4
+kejim_post (FAIL)  groupOwner=296  pend=2   stalls=9007  matchSame=2  matchOther=13
+```
+
+**Cross-manager completion happens in the passing run too** (`matchOther=4`), and in both runs the
+owning manager does receive the id (`matchSame=2`). It is normal traffic, not the discriminator.
+Twentieth mechanism eliminated.
+
+**And the design flaw it exposed matters more than the result.** Stalling is normal: a group wait
+re-queues every frame until its task completes, so thousands of stalls are the mechanism working.
+Latching the *first* stall therefore captures an ordinary wait that later completes fine -- `pend=13`
+and `pend=2` here are early groups, not the terminal stuck one. Only the group still incomplete when
+the run ends is the defect, and none of the live counters used in the last several rounds
+distinguish those two populations.
+
+An unlatched counter tracks a moving target; a first-latched counter tracks the wrong target. What
+the question actually needs is the group that is still incomplete at the end -- identified at the
+end, not sampled during the run. Several recent measurements are weaker than they looked for this
+reason, and are marked accordingly above.

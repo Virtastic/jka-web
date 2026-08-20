@@ -4290,3 +4290,31 @@ arrives" as the complete story rather than the most probable reading of three sa
 **Next step**, unchanged in kind but now precisely targeted: find why the load-2 cutscene script
 stops before its camera-disable step, given that the identical script completes on load 1 in the
 same session.
+
+### The probe is ruled out, and the signature is clean
+
+The camera events are now recorded without any I/O on the failing path -- three integer stores into
+a static ring, dumped afterwards through an `idt3camdump` console command -- because printing there
+made the fault reproduce 9/9 where it is otherwise intermittent.
+
+The probe's own deterministic `cam_enable` / `cam_disable` contract test runs on load 1, shortly
+before the reload, and `CMD_CGCam_Disable` does more than clear the flag (it also calls
+`CGCam_SetFade` and clears `player_locked`). That made it a real candidate for *causing* the
+failure. Removing it entirely (`SKIP_CONTRACT=1`) changes nothing -- 4/4 fail, and the ring reduces
+to exactly three events:
+
+```
+ENABLE  load=1 t=0
+DISABLE load=1 t=26444      <- map 1's opening cutscene: 26.4s, ends normally
+ENABLE  load=2 t=0          <- the reload's cutscene: starts, never ends
+```
+
+So the harness is not the cause, and the characterisation is as tight as it can be made without
+solving it: **the identical script, on the identical map, completes in 26.4 seconds on the first
+load and never completes on the second.** Map 1's disable arrives on schedule; map 2's never does,
+across a 60-second window (and a 5-minute one tested earlier).
+
+That is the fourth time in this investigation the instrument turned out to be part of the story --
+after the probe-generated `Menus_ActivateByName` warning, the runs invalidated by a dead dev server,
+and a print cap mistaken for a result. Ruling the harness out explicitly, rather than assuming it
+innocent, is why this one can now be stated plainly.

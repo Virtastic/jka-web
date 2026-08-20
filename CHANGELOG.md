@@ -1,0 +1,70 @@
+# Changelog
+
+Notable changes to this project. The detailed engineering record — including theories that were
+wrong and later retracted — lives in `docs/WASM_ADAPTATIONS.md`.
+
+This project uses [Semantic Versioning](https://semver.org/).
+
+## [1.0.0] — 2026-08-20
+
+First public release: **Jedi Knight: Jedi Academy** single-player, running in the browser from
+Raven's original GPL sources.
+
+### The port
+
+- The complete single-player campaign runs end to end: **34/34 maps** load and reach gameplay
+  back-to-back in one browser session, with a flat heap across the whole sweep.
+- Savegames work and survive a full page reload, persisted through IDBFS.
+- Scripted level transitions carry the player and their inventory between maps.
+- RoQ cinematics play, with video and audio.
+- Rendering runs through WebGL using the engine's own renderer; the skeletal character path (Ghoul2)
+  draws correctly.
+
+### Notable engine adaptations
+
+The full list is in `docs/WASM_ADAPTATIONS.md`. The recurring theme: the original unloads and
+reloads its game DLL on every map, so file-scope statics reset for free. A persistent WebAssembly
+side module does not, and each of these was a real, measured failure:
+
+- `num_roffs`, `NumMiscEnts`, `in_camera`, `CNavigator::Free()` — per-map static resets.
+- **`iCGResetCount`**, the per-map cgame reset counter. Its own comment states it is expected to be
+  fresh on every DLL load; ours was not, so the second map load in a session concluded a
+  `vid_restart` had happened and skipped both resets that flag guards.
+- **The ICARUS `affect()` registration race.** NPC names are registered with ICARUS a few frames
+  after the entity string is parsed, and `ParseAffect` silently fast-forwards over an affect block
+  whose target it cannot resolve — returning `SEQ_OK`, so the script "succeeds" with a chunk
+  missing. A cutscene could therefore run its own camera commands, drop every actor block, and
+  finish without ever reaching `camera( DISABLE )`, leaving `in_camera` set and the in-game menu
+  shut. NPCs are now registered at spawn, the warning is printed unconditionally instead of being
+  suppressed by the ICARUS debug cvar, and `verify-icarus-affect.mjs` guards it — proven both ways:
+  28 skipped blocks without the fix, 0 with it.
+- `NAV_FindClosestWaypointForPoint` — a function-local `static` marker entity, spawned once but
+  freed on every call.
+- Working brightness/gamma, using an SVG colour transfer function in place of a hardware gamma ramp.
+
+### Browser shell
+
+- `launcher.html` — choose where game data comes from: Cloud Locker, data hosted by the site,
+  or your own install via the folder picker. (Jedi Academy has no freely-redistributable demo
+  mission, so unlike jk2-web there is no no-data route.)
+- `index.html` — the game page, with loading progress and an in-page console ring.
+- Optional Cloud Locker backend (`cloud/`) — OAuth sign-in, then game data and saves in S3 or on
+  local disk. Uploads are checked against an allowlist of known-genuine archives, so the locker
+  cannot be used as general file storage.
+
+### Licensing
+
+- Distributed under **GPLv2**, matching the engine's grant. An earlier GPLv3 `LICENSE` was incorrect:
+  the drop grants version 2 with no "or later" clause for Raven's code.
+- Pre-compiled proprietary binaries that shipped inside the drop — SmartHeap, OpenAL, EAX, Immersion
+  FeelIt and Bink Video — have been removed. None is used by the WebAssembly build. See
+  `THIRD-PARTY-LICENSES.md`.
+- **No game data is included or distributed.** Bring your own legally-obtained copy.
+
+### Known limitations
+
+- **Single-player only.** The multiplayer sources are present in the drop but are not built.
+- The ICARUS registration race is *narrowed*, not structurally eliminated — registration lands a few
+  frames into the level rather than at parse time. It is self-reporting and covered by a regression
+  test rather than left silent.
+- The folder picker needs a Chromium-based desktop browser (File System Access API).

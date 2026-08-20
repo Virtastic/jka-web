@@ -4586,3 +4586,40 @@ playing when the level ends leaves the entity's playback state stale.
 
 Every link is measured rather than inferred, and the earlier claims about stale task numbering and
 about a camera/player deadlock are both retracted above.
+
+### G_Roff is not the stall: the playback is never armed
+
+Counting each of `G_Roff`'s three early returns plus its tick and completion paths, four failing
+runs:
+
+```
+noTime=3163513  notYet=0  noCache=0  tick=3153  done=77
+```
+
+Two hypotheses die here, including the one this section was written to confirm:
+
+* **`notYet=0`** -- no entity ever has `next_roff_time > level.time`. `next_roff_time` is an
+  absolute `level.time` value and `level.time` restarts at 1000 each map, so a carried-over
+  timestamp would park playback in the future indefinitely. That was the expected answer given the
+  four stale-state bugs already fixed in this port. It does not happen.
+* **`noCache=0`** -- `G_LoadRoff()` never fails, so the `.ROF` cache is healthy and the existing
+  `num_roffs` reset is doing its job. The "MAX_ROFFS exhausted" theory that motivated looking here
+  is also out.
+
+Meanwhile `tick=3153` and `done=77`: ROFF playback advances and completes normally dozens of times
+during the same failing run. The subsystem works.
+
+That leaves the first branch. `noTime` counts every call where `next_roff_time == 0` -- mostly
+entities with no ROFF at all, so the raw figure is noise -- but the Raven's Claw must be among them,
+because it is neither ticking nor completing. Its playback is **never armed**: `play( "PLAY_ROFF",
+"roff/cinematic4_claw_hover" )` is issued by the script (the trace shows it) and `next_roff_time`
+never becomes non-zero.
+
+So the fault is in the ROFF **start** path, not the playback loop. The next measurement is narrow:
+instrument the `PLAY_ROFF` handler (`Q3_Play` / the roff-start entry in Q3_Interface.cpp) for entity
+644 and record whether it is reached, and what it does with `next_roff_time`.
+
+**Method note.** This is now the third consecutive round where the measurement contradicted the
+hypothesis it was built to test -- stale task numbering, then the camera/player deadlock, now the
+stale ROFF timestamp. Each was plausible from the surrounding evidence and each was wrong. The
+counters cost a rebuild and a few minutes; the guesses would have cost a bad fix.

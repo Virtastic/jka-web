@@ -4404,3 +4404,42 @@ pending task inside the KYLE_WALK group identified directly.
 Which task inside the `KYLE_WALK` group stays pending. That is one level below anything measured so
 far -- `CTaskGroup` membership rather than the group's completion flag - and it is the last step
 between here and a named line of script.
+
+### Down to a single uncompleted task
+
+Reading the stalled `CTaskGroup`'s own members at the moment it reports incomplete
+(`m_completedTasks` is public in taskmanager.h -- the `//protected:` above it is commented out):
+
+```
+PASS  stalls=1337  done=0 of=1  pendingTaskId=1
+FAIL  stalls=3359  done=0 of=1  pendingTaskId=137
+```
+
+Two things fall out.
+
+**Stalling is normal.** The passing run stalls on this same wait 1,337 times before proceeding --
+a group wait re-queues every frame until its task completes, so a high stall count is the
+mechanism working, not the fault. Any earlier reading that treated repeated stalls as the anomaly
+was wrong; only the failure to *finish* distinguishes the two.
+
+**The group holds exactly one task** (`of=1`) and it is never marked complete (`done=0`). So the
+chain now terminates precisely: `CTaskGroup::MarkTaskComplete()` is never reached for that id,
+which means `CTaskManager::Completed( id )` is never called with it, which means
+`Q3_TaskIDComplete( ent, TID_MOVE_NAV )` either does not fire for that entity or fires carrying a
+different id than the group is waiting on.
+
+Aggregate counters recorded earlier (`movenav call=160 hit=80`) do not settle which, because they
+count every entity. The next measurement is narrow and obvious: log the ids passed to
+`CTaskManager::Completed()` and compare them against the pending id.
+
+### A process failure worth recording
+
+The batch before this one produced two useless runs. The Python patch that was supposed to update
+the probe hit an `AssertionError` and exited *before* editing anything, but the surrounding shell
+carried on and ran both measurement rounds against the unmodified probe -- which was still calling
+a console command that had been reverted, so it faithfully reported `(no reply)`.
+
+This is the same shape as the two runs trusted earlier whose *build* had silently failed, and the
+fix is the same: a failed preparation step must stop the pipeline rather than let measurement
+proceed on stale code. `build.errs` is already checked for the compile side; the probe edit now
+asserts per line so a mismatch fails loudly instead of silently no-op'ing.

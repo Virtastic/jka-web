@@ -13,8 +13,14 @@ OUT="$IDTECH3_ROOT/play/jk2"
 BUILD="$IDTECH3_ROOT/build-jk2"
 mkdir -p "$BUILD" "$OUT"
 
-INCLUDES="-I$SRC/qcommon -I$SRC/client -I$SRC/renderer -I$SRC/game -I$SRC/ui -I$SRC/cgame \
--I$SRC/ghoul2 -I$SRC/mp3code -I$SRC/jpeg-6 -I$SRC/server -I$SYS"
+# idTech3-web: argv is assembled as bash ARRAYS, not as a space-joined string. A string
+# has to be expanded UNQUOTED to split into separate arguments, and unquoted expansion
+# also splits on the spaces *inside* $SRC -- fatal on any host whose checkout path
+# contains one (e.g. C:/Users/First Last/... under Git-Bash): every -I became two broken
+# arguments and every engine TU failed with "no such file or directory". With arrays one
+# element is exactly one argv entry, whatever the path looks like.
+INCLUDES=( -I"$SRC/qcommon" -I"$SRC/client" -I"$SRC/renderer" -I"$SRC/game" -I"$SRC/ui" \
+  -I"$SRC/cgame" -I"$SRC/ghoul2" -I"$SRC/mp3code" -I"$SRC/jpeg-6" -I"$SRC/server" -I"$SYS" )
 # stricmp/strnicmp: MSVC names for the POSIX case-insensitive compares.
 # random: the engine's `inline float random()` collides with POSIX `long random()`;
 #   rename it (and its call sites) consistently via macro. jk_compat.h (force-included)
@@ -27,9 +33,30 @@ INCLUDES="-I$SRC/qcommon -I$SRC/client -I$SRC/renderer -I$SRC/game -I$SRC/ui -I$
 # Without it the engine compiled that file in game-DLL mode and referenced `gi`, which
 # only exists in the game module (g_main.cpp), so the MAIN_MODULE aborted at startup
 # with "undefined symbol 'gi'" long before FS_Startup.
-DEFINES="-D_JK2EXE -DMAC_STATIC= -DCPUSTRING=\"wasm32\" -DPATH_SEP='/' -DIDT3_FSROOT=\"/jk2\" \
--Dstricmp=strcasecmp -Dstrnicmp=strncasecmp -Dstrcmpi=strcasecmp -D_strnicmp=strncasecmp -D_stricmp=strcasecmp -DINT32=int -DLITTLE_ENDIAN=1 \
--include $SYS/jk_compat.h"
+# The inner quotes below are LITERAL parts of the macro value: CPUSTRING has to expand to
+# a C string literal and PATH_SEP to a char literal, so those quotes must survive into
+# argv -- hence each such element is quoted around its embedded quote characters.
+# -DFINAL_BUILD: the retail engine is built with it. starwars.vcproj's Release
+# configuration reads NDEBUG,FINAL_BUILD,_JK2EXE,WIN32,_WINDOWS,_IMMERSION,_FF
+# (starwars.dsp line 103 for JK2), and we were defining every one of those we can
+# except FINAL_BUILD -- so the browser build was the developer build, not the shipped
+# one. It is not only cosmetic:
+#   * files_pc.cpp:813 prints "FS_ReadFile: <file> NOT PRECACHED!" in magenta for every
+#     asset loaded during play. Four of those appeared on a stock t1_sour boot; retail
+#     prints none of them.
+#   * snd_ambient / snd_music / snd_mem / msg.cpp carry the same kind of developer
+#     diagnostics behind #ifndef FINAL_BUILD.
+#   * G2_API.cpp:31 sets G2API_DEBUG to 0 (retail) instead of leaving the debug value.
+#   * common.cpp:13 stops pulling win32 platform.h, and OUTPUT_TO_BUILD_WINDOW goes away.
+#   * cl_keys.cpp:1336 restores the retail console gate (Shift + `), which is the
+#     behaviour a desktop player actually has.
+# _IMMERSION/_FF stay undefined on purpose: they are Immersion TouchSense force
+# feedback, whose ff/ TUs are excluded above and which no browser can drive. With them
+# undefined the engine compiles those paths out entirely, exactly like a machine with
+# no force-feedback device.
+DEFINES=( -D_JK2EXE -DFINAL_BUILD -DMAC_STATIC= '-DCPUSTRING="wasm32"' "-DPATH_SEP='/'" '-DIDT3_FSROOT="/jk2"' \
+  -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp -Dstrcmpi=strcasecmp -D_strnicmp=strncasecmp \
+  -D_stricmp=strcasecmp -DINT32=int -DLITTLE_ENDIAN=1 -include "$SYS/jk_compat.h" )
 # JK2 is C++: build our OWN flag set (the shared IDTECH3_COMMON_FLAGS has C-only
 # -fgnu89-inline / -DDLL_ONLY which clang rejects for C++). Keep the warning
 # relaxations for the era's lenient code, plus C++/MSVC-ism tolerances.
@@ -39,16 +66,19 @@ DEFINES="-D_JK2EXE -DMAC_STATIC= -DCPUSTRING=\"wasm32\" -DPATH_SEP='/' -DIDT3_FS
 # -fno-operator-names: the renderer uses `or`/`and` as struct member names (they're
 #   C++ alternative-operator keywords otherwise). -Wno-reserved-user-defined-literal:
 #   old code writes `"..."MACRO` with no space (a C++11 UDL ambiguity).
-JK2_FLAGS="-std=gnu++14 -fexceptions -DOPENAL -O3 -fno-strict-aliasing -fPIC ${IDTECH3_THREAD_FLAGS} -DNDEBUG \
--fno-operator-names -Wno-reserved-user-defined-literal \
--Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-pointer-types \
--Wno-return-type -Wno-shift-negative-value -Wno-writable-strings -Wno-invalid-offsetof \
--Wno-register -Wno-deprecated -Wno-c++11-narrowing -fms-extensions -fdelayed-template-parsing"
-IDTECH3_COMMON_FLAGS="$JK2_FLAGS"   # local override for this build only
-INCLUDES="$INCLUDES $DEFINES"
+JK2_FLAGS=( -std=gnu++14 -fexceptions -DOPENAL -O3 -fno-strict-aliasing -fPIC ${IDTECH3_THREAD_FLAGS} -DNDEBUG \
+  -fno-operator-names -Wno-reserved-user-defined-literal \
+  -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-pointer-types \
+  -Wno-return-type -Wno-shift-negative-value -Wno-writable-strings -Wno-invalid-offsetof \
+  -Wno-register -Wno-deprecated -Wno-c++11-narrowing -fms-extensions -fdelayed-template-parsing\
+  ${IDTECH3_JK_WARNFLAGS} )
+CXXARGS=( "${JK2_FLAGS[@]}" "${INCLUDES[@]}" "${DEFINES[@]}" )   # local flag set for this build only
 
 # Portable engine sources (from starwars.dsp; win32/smartheap/mac excluded).
-ENGINE_CPP=$(grep -viE "win32/|smartheap/|mac/|0_compiled_first/|/FeelIt" "$BUILD/engine-sources.txt" 2>/dev/null | sed 's#^\./##')
+# `|| true`: under `set -euo pipefail` a VAR=$(failing-pipeline) assignment aborts the
+# script, so with no cached list this died silently before reaching the regeneration
+# below — i.e. a fresh clone could never build. The fallback was unreachable.
+ENGINE_CPP=$(grep -viE "win32/|smartheap/|mac/|0_compiled_first/|/FeelIt" "$BUILD/engine-sources.txt" 2>/dev/null | sed 's#^\./##' || true)
 
 if [ -z "${ENGINE_CPP:-}" ]; then
   # Regenerate the source list from the .dsp if not cached.
@@ -95,10 +125,14 @@ OBJS=(); FAILED=()
 # Coarse on purpose: one header touch rebuilds everything, the safe way to err.
 # NB no pipe into head: this runs under `set -euo pipefail` and head closing the pipe
 # early SIGPIPEs find, aborting the whole build silently.
+# NB -print0 / read -d "": an unquoted $(find ...) word-splits on the spaces inside the
+# checkout path, leaving only non-existent fragments, so -nt was false for every one and
+# IDT3_NEWEST_HDR stayed empty -- silently disabling the very staleness check described
+# above. NUL-delimited names are the only split-proof form.
 IDT3_NEWEST_HDR=""
-for _h in $(find "$SRC" "$SYS" -name '*.h' -print 2>/dev/null); do
+while IFS= read -r -d "" _h; do
   if [ -z "$IDT3_NEWEST_HDR" ] || [ "$_h" -nt "$IDT3_NEWEST_HDR" ]; then IDT3_NEWEST_HDR="$_h"; fi
-done
+done < <(find "$SRC" "$SYS" -name '*.h' -print0 2>/dev/null)
 [ -n "$IDT3_NEWEST_HDR" ] && echo "== newest header: $IDT3_NEWEST_HDR =="
 
 compile() {
@@ -111,15 +145,19 @@ compile() {
   # calls mis-resolve as overloads. Build it as plain C (emcc), no -x c++. It needs only
   # its own headers plus the engine's lowercase `byte` and L3.h's little-endian select.
   if [[ "$src" == *"/mp3code/"* ]]; then
+    # -Wno-parentheses-equality / -Wno-comment: `if ((x == 2))` in cupl3.c and a nested
+    # `/*` in towave.c's banner. Same era-leniency policy as IDTECH3_JK_WARNFLAGS, which
+    # this branch does not use because mp3code is C and gets its own minimal flag set.
     if emcc -O2 -fPIC ${IDTECH3_THREAD_FLAGS} -DLITTLE_ENDIAN=1 -Dbyte="unsigned char" \
+         -Wno-parentheses-equality -Wno-comment \
          -I"$SRC/mp3code" -c "$src" -o "$o" 2>>"$BUILD/build.errs"; then OBJS+=("$o")
     else FAILED+=("$src"); echo "FAIL $src"; fi
     return
   fi
   # Raven ships some C++ code in .c files (e.g. renderer/MatComp.c); compile everything
   # as C++ (em++ -x c++) so the -std=gnu++14 flag set applies uniformly.
-  local xflag=""; [ "${src##*.}" = "c" ] && xflag="-x c++"
-  if em++ $xflag $IDTECH3_COMMON_FLAGS $INCLUDES -c "$src" -o "$o" 2>>"$BUILD/build.errs"; then
+  local xflag=(); [ "${src##*.}" = "c" ] && xflag=( -x c++ )
+  if em++ "${xflag[@]}" "${CXXARGS[@]}" -c "$src" -o "$o" 2>>"$BUILD/build.errs"; then
     OBJS+=("$o")
   else
     FAILED+=("$src"); echo "FAIL $src"
@@ -139,8 +177,15 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
 fi
 
 echo "== linking jk2.js =="
+# NB no -sEXPORTED_FUNCTIONS here. MAIN_MODULE=1 implies LINKABLE, which exports every
+# function anyway, so emcc rejected the flag with
+#   warning: EXPORTED_FUNCTIONS is not valid with LINKABLE set ... [-Wunused-command-line-argument]
+# on every link. The entry points the page and the CDP harnesses call -- _main,
+# _idt3_pump_frame, _idt3_exec_cmd, _malloc, _free -- are all present without it
+# (verified against the emitted .js); they additionally carry EMSCRIPTEN_KEEPALIVE at
+# their definitions, so they survive regardless of this link's export list.
 em++ "${OBJS[@]}" $IDTECH3_LINK_FLAGS -sMAIN_MODULE=1 \
-  -lopenal -sEXPORTED_FUNCTIONS=_main,_idt3_pump_frame,_malloc,_free \
+  -lopenal \
   --post-js "$HERE/sys_emscripten/glemu_sig_fix.post.js" \
   -o "$OUT/jk2.js"
 echo "== done: $OUT/jk2.js =="

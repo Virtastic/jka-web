@@ -3,6 +3,13 @@
 Running engineering log of every change made to run the original idTech3 GPL sources in
 the browser. Modeled on `CS-Web/WASM_ADAPTATIONS.md` and `ja2-web/WASM_ADAPTATIONS.md`.
 
+> **Scope of this log.** This is the shared engineering log of the idTech3-web effort, which
+> covered five engines. **This repository ships only Jedi Academy (JKA)** - `games/jka`.
+> Entries about RTCW-SP, RTCW-MP, Wolf:ET and Jedi Outcast, and the harnesses that drove them, are kept as provenance:
+> they record how a shared problem was found and fixed, and several JKA fixes only make
+> sense alongside them. Those engines and their probes live in sibling repositories, so a
+> command quoted in a historical entry may reference a script that is not present here.
+
 **Ground rule:** the sources under `games/<game>/` are the *original* 2001–2003 GPL drops.
 Every browser adaptation is a reviewable commit on top of the pristine import commit, so
 `git diff <import> -- games/<game>` is the complete, auditable port. No code is copied from

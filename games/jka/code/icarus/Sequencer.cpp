@@ -11,6 +11,10 @@
 #include "taskmanager.h"
 #include "sequencer.h"
 
+// idTech3-web: pull in the game header for Com_Printf, matching what the JK2 port already
+// does in its copy of this file. Needed for the unconditional affect()-skipped warning below.
+#include "../game/g_local.h"
+
 #define S_FAILED(a) (a!=SEQ_OK)
 
 #define STL_ITERATE( a, b )		for ( a = b.begin(); a != b.end(); a++ )
@@ -756,6 +760,17 @@ int CSequencer::ParseAffect( CBlock *block, bstream_t *bstream, CIcarus* icarus 
 
 	if (stream_sequencer == NULL)
 	{
+		// idTech3-web: say this out loud. Same change as the JK2 port, same reason.
+		//
+		// DebugPrint is gated on the ICARUS debug cvar, which defaults to off, so this warning --
+		// reporting that an entire affect() block is about to be skipped -- never reaches the log in
+		// the shipped configuration. A skipped block is a correctness failure, not debug chatter:
+		// script the map author wrote did not run. In JK2 that silence hid a cutscene quietly
+		// dropping its actor blocks and never reaching camera( DISABLE ), which shut the in-game
+		// menu. Printed unconditionally so it cannot hide, and so map-sweep can assert on it.
+		// Deliberately narrow: only this branch, not the whole warning channel.
+		Com_Printf( S_COLOR_YELLOW "WARNING: invalid affect() target '%s' -- skipping the whole "
+					"affect block (ICARUS script did not run)\n", entname ? entname : "(null)" );
 		game->DebugPrint(IGameInterface::WL_WARNING, "'%s' : invalid affect() target\n", entname );
 		
 		//Fast-forward out of this affect block onto the next valid code

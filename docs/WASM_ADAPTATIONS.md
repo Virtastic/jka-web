@@ -5322,3 +5322,42 @@ early enough" is reasoning about a change, not evidence about the system. The fr
 build to add and immediately contradicted the claim. Anything asserted about ordering should be
 printed with the ordering key attached -- here, the frame number -- rather than inferred from where
 the source line sits.
+
+### The silent skip is now loud (and a second void control, retracted)
+
+`Q3_DebugPrint` / `CQuake3GameInterface::DebugPrint` both begin:
+
+```c
+if ( g_ICARUSDebug->integer < level ) return;
+```
+
+`g_ICARUSDebug` defaults to `"0"`, `WL_ERROR` is 1 and `WL_WARNING` is 2, so **every ICARUS error and
+warning is suppressed in the shipped configuration** -- including the one reporting that an entire
+`affect()` block is being skipped. That silence is the reason the menu defect took so long to find:
+script the map author wrote simply did not run, and nothing said so.
+
+The `stream_sequencer == NULL` branch now prints unconditionally via `Com_Printf` in both engines.
+Deliberately narrow -- only that branch, not the whole warning channel, which would flood the log
+with pre-existing script warnings from the retail maps.
+
+**Retraction.** The earlier JKA control here -- "0 skipped affects across 34 maps" -- is withdrawn.
+That probe used `game->DebugPrint( WL_ERROR, ... )`, which is gated by the same cvar, so it could
+never have printed anything. It measured a silenced instrument, not an absence of skips. Second void
+control of the session, and a direct violation of the rule written after the first one: *a null
+result is evidence only if the instrument is proven live.*
+
+Redone with a print that is provably live, and with a positive control run first in the same session:
+
+```
+JK2 kejim_post, devmap the running map:
+  fix REMOVED  -> first load 0 affect warnings, after reload 28   <- instrument proven live
+  fix RESTORED -> first load 0 affect warnings, after reload  0
+```
+
+The positive control matters more than the zero: without it, "0" is indistinguishable from a probe
+that cannot speak, which is exactly the trap that produced the retraction above.
+
+One further nuance worth recording: with the fix removed, the reproducer's *menu* sometimes still
+passes even while 28 blocks are skipped. The skipping is reliable; whether it locks the menu depends
+on which blocks were dropped. Judging this defect by the menu symptom alone is therefore unreliable
+-- count the skipped blocks instead.

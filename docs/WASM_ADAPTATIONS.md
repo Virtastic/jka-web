@@ -4856,3 +4856,39 @@ NPCs able to complete navigation goals.
 The next measurement is therefore about navigation state across a reload, not about any one script:
 whether nav data is rebuilt, and whether `TID_MOVE_NAV` completions fire at all for a patrolling NPC
 on the second load.
+
+### Navigation state is healthy across the reload
+
+Instrumenting `CNavigator::Free()` and the `navigator.Load()` call in `InitGame()`, on both failing
+maps:
+
+```
+artus_mine   frees=1  nodesAtLastFree=254  loads=2  loadsOk=2  nodesAfterLastLoad=254
+kejim_post   frees=1  nodesAtLastFree=239  loads=2  loadsOk=2  nodesAfterLastLoad=239
+```
+
+Both loads succeed, `Free()` runs exactly once between them, and the node count after the second
+load **equals** the count present at free time. No doubling, so the append-without-clear that the
+committed `CNavigator::Free()` fix addresses is not recurring. The nav graph is rebuilt correctly.
+
+So the subsystem the generalisation pointed at is not the cause either. A scripted navigation task
+fails to complete while the navigation data it depends on is demonstrably intact.
+
+### Standing count
+
+Mechanisms eliminated by measurement in this investigation, each with the evidence recorded above:
+module-loading strategy; the navigator use-after-free as cause; `in_camera` resets at `InitGame` and
+at `CG_Init`; stale `client_camera` deadlines; `level.time` failing to reset; a shared `va()` buffer;
+a dangling `bs_name`; dying inside `ICARUS_RunScript`; ESC swallowed by the cinematic branch;
+`Menus_ActivateByName` failing; `CG_SHUTDOWN` being skipped; per-instance divergence of `in_camera`;
+task ids carried from the previous load; a missing task group; stale wait timestamps; orphaning by
+PLAY_ROFF restart; ROFF cache exhaustion and stale ROFF timestamps; and now navigation state.
+
+Established and not contradicted: on a same-map reload a task group holding exactly one navigation
+task never completes (`done=0 of=1`), on at least two maps with different groups (`HOVER`,
+`nav_patrol2`), while the task is issued to the correct entity, the nav graph is intact, ROFF
+playback ticks and completes normally, and every other id in the same run completes.
+
+The untested direction that remains is the physical one: whether the entity actually reaches its
+navigation goal on the second load -- position and movement -- rather than any bookkeeping around
+the task. Nothing measured so far has looked at where the entity is or whether it moves.

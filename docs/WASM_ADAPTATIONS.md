@@ -4360,3 +4360,47 @@ TID_MOVE_NAV )` is reachable for an entity the camera has frozen. Note the port 
 navigation fix (`CNavigator::Free()` use-after-free), so nav state on reload is a reasonable first
 suspect -- though `Navigation Data Cleared` does appear in the shutdown log, and no nav error is
 reported.
+
+### The stall is located exactly, and the deadlock theory is refuted
+
+Recording every camera op with a load tag (no I/O on the path), two failing runs identical:
+
+```
+load 1:  ENABLE > MOVE > PAN > ZOOM > FOLLOW > DISABLE
+load 2:  ENABLE > MOVE > PAN > ZOOM                        <- stops before FOLLOW
+```
+
+The reload's cutscene runs normally through MOVE, PAN and ZOOM. It stops at the
+`wait( "KYLE_WALK" )` that sits between ZOOM and FOLLOW -- which matches the 3,349 incomplete
+evaluations of that group recorded above, and pins the stall to one line of one script.
+
+**This refutes the deadlock explanation given earlier.** That entry argued the cutscene enables the
+camera, the camera freezes the player, and the frozen player can never finish the walk that would
+release the camera. Load 1 reaches the same wait with the camera *already enabled* -- ENABLE
+precedes it in both -- and the walk completes there in 26.4 seconds. So the camera does not prevent
+the walk, and the deadlock story is wrong.
+
+It also corrects a reading of `viewpos` from several entries above. `(0 0 6)` was described as the
+player stranded at the world origin; `viewpos` prints `cg.refdef.vieworg`, which during a cutscene
+is the **camera**. The op trace now shows MOVE does fire on load 2, so that reading was wrong in
+both directions -- the camera is not parked at the origin either.
+
+### What the task counters do and do not show
+
+`Q3_TaskIDComplete` was counted by task type:
+
+```
+FAIL  movenav call=160 hit=80    PASS  movenav call=50 hit=26
+```
+
+Completions fire in both, and the failing run has more only because it runs longer. **These
+counters are aggregate across every entity, so they cannot isolate Kyle's walk** -- they neither
+confirm nor exclude a movement-completion fault, and are recorded here as inconclusive rather than
+as an elimination. Isolating it needs the counter filtered to the player entity, or better, the
+pending task inside the KYLE_WALK group identified directly.
+
+### Next
+
+Which task inside the `KYLE_WALK` group stays pending. That is one level below anything measured so
+far -- `CTaskGroup` membership rather than the group's completion flag - and it is the last step
+between here and a named line of script.

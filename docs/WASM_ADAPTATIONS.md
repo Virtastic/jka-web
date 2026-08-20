@@ -5409,3 +5409,17 @@ Worth noting what nearly happened: the release gate would have blocked 1.0.0 on 
 the obvious "fix" - loosening the assertion until it passed - would have destroyed its ability to
 catch the real thing. The cold/warm split is what distinguishes them, and it only exists because the
 probe happened to report both numbers separately.
+
+#### Known cold-load affect() baselines
+
+Maps whose own scripts name entities the map does not contain. They skip the same blocks on a
+**cold** first load, before any reload, so they are Raven's content and not this port's race.
+Recorded here so a future reader does not mistake them for a regression:
+
+| map | blocks skipped per load | target(s) |
+|---|---|---|
+| `t2_rancor` | 1 | `script_camTarget1` |
+
+The sweep reports these; it does not fail on them. `verify-icarus-affect.mjs` compares a
+reload against the map's own cold baseline, so these pass while a genuine warm-only delta still
+fails.

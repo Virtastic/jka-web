@@ -1,0 +1,18 @@
+{
+  "name": "jka-cloud",
+  "version": "1.0.0",
+  "private": true,
+  "description": "jka-web cloud backend: OAuth login + S3 presign for game-data & save sync",
+  "license": "GPL-2.0-only",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.658.0",
+    "@aws-sdk/s3-request-presigner": "^3.658.0",
+    "@fastify/cookie": "^10.0.1",
+    "fastify": "^5.1.0"
+  }
+}

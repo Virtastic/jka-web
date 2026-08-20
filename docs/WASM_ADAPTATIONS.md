@@ -4781,3 +4781,36 @@ Two batches were lost to the measurement setup rather than the engine, both self
 
 A timeout has to be set from a measured run, not from an assumption about how long the work should
 take.
+
+### Static comparison of the reliable pass and the reliable fail
+
+`kejim_post` fails every run and `artus_topside` passes every run, so their content is directly
+comparable. Counting compiled scripts shipped for each map:
+
+| map | scripts in `scripts/<map>/` | PLAY_ROFF refs there | result |
+|---|---|---|---|
+| `pit` | **0** | 0 | PASS |
+| `valley` | **0** | 0 | PASS |
+| `artus_topside` | 78 | 7 | PASS |
+| `artus_mine` | 63 | 0 | FAIL ~1/3 |
+| `kejim_post` | 117 | 22 | FAIL 2/2 |
+
+**`pit` and `valley` ship no scripts at all.** That is a real reason for them to pass, and it
+replaces the cutscene explanation retracted above -- which had been inferred from a log that was not
+recording camera lines for any map.
+
+**No clean discriminator emerges from these counts.** `artus_topside` has 78 scripts and 7 ROFF
+references and passes reliably; `artus_mine` has 63 and, in its own directory, none -- yet fails.
+Script count does not order the results, and neither does per-map ROFF usage.
+
+The `artus_mine` zero is itself a measurement artifact worth naming: its stalling task was
+`roff/cinematic4_claw_hover`, which lives in `scripts/cinematics/` (69 files, 30 PLAY_ROFF
+references, shared across maps) rather than in `scripts/artus_mine/`. A per-map grep cannot see the
+shared cinematic scripts, so the "0" means "none in its own folder", not "no ROFF involved". Two
+maps' figures in the table are therefore not comparable to the thing that actually stalls.
+
+So static content comparison has not produced the discriminator. What it has produced is the fact
+that the two clean passes have no scripts at all, and that among script-bearing maps the split does
+not follow any simple count. The next comparison has to be dynamic -- what `kejim_post` does on its
+second load that `artus_topside` does not -- using the reliable reproducer rather than static
+inspection.

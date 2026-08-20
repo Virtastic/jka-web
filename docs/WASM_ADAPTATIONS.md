@@ -4492,3 +4492,51 @@ The same instrumented build produced 3/3 pass in one batch and 6/6 fail in the n
 instrumented builds ran 9/9 fail. The fault is genuinely intermittent and any batch small enough to
 be convenient is small enough to mislead -- which is exactly how a "2/2 pass" was once recorded in
 this log as a fix that was not one.
+
+## RETRACTION: the "task id from the previous load" root cause was wrong
+
+The entry above titled *"ROOT CAUSE: the reload's wait holds a task id from the previous load's
+numbering"* is **withdrawn**. It was committed and pushed before the measurement behind it was
+sound.
+
+**The flaw.** The recorder stored only the **first 64** ids passed to `CTaskManager::Completed()`,
+while a run makes **325** such calls. So `pendingIdSeenInCompleted=0` meant *"not among the first
+64"*, not *"never completed"*. The conclusion drawn from it -- that the wait referenced an id from
+the previous load while the new load issued fresh low ids -- did not follow.
+
+Two facts already in hand should have blocked it at the time:
+
+* `CTaskManager::Init()` sets `m_GUID = 0` for every manager and `Create()` is a plain `new`, so id
+  137 is exactly as consistent with *the 137th task of this load*;
+* the shutdown audit measured `skipped=8 skippedWithIcarus=0 freed=159` -- **no** entity retains
+  ICARUS state across the map load, which is the only way carry-over could have happened.
+
+**Re-measured with full coverage** (every call counted, no window):
+
+```
+FAIL  pending=137  matches=77  calls=325  maxId=136  stalls=3349
+FAIL  pending=135  matches=76  calls=323  maxId=134  stalls=3352
+```
+
+`maxId` is always **exactly one below** `pending`. So the pending task is simply the **last id
+minted in that same load**, and every id below it completes normally. There is no stale numbering
+and no id-space mismatch.
+
+### What is actually established
+
+The final task created for the cutscene is never completed. Everything before it completes; it
+alone does not. `KYLE_WALK` holds that one task (`done=0 of=1`), so the group never completes, the
+script never reaches `camera( DISABLE )`, and `in_camera` stays set.
+
+So the question returns, correctly framed this time and one level narrower than before: **why does
+the last task minted for the reload's cutscene never receive its completion**, when the identical
+script completes it in 26.4s on the first load.
+
+### Process note
+
+This is the fifth time in this investigation that an instrument rather than the engine produced a
+"finding", and the first where the conclusion had already been committed. The others were caught
+before publication: a probe-generated menu warning, runs invalidated by a dead dev server, a print
+cap mistaken for a result, and a stale probe run after a failed patch. The rule that would have
+caught this one: **a counter with a capacity limit must report whether it hit that limit**, and a
+search over a bounded sample must never be phrased as a search over the whole population.

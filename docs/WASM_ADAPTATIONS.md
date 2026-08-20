@@ -4935,3 +4935,54 @@ What remains true and unexplained: on a same-map reload, a group holding exactly
 never completes, on at least two maps with different groups, while the task is issued to the right
 entity, that entity moves, the nav graph is intact, ROFF playback completes dozens of times, and
 every other task id in the same run completes.
+
+## The reference comparison: JKA does not have this defect
+
+JKA is the correct control -- same vendor, same engine lineage, same toolchain, same platform layer,
+and it shares the ROFF/ICARUS/navigation code the fault lives in. Its clean record until now came
+from campaign sweeps and *transitions*; the same-map reload path had never been run against it.
+
+Run now, `SECOND_MAP=1` on two maps:
+
+```
+JKA t1_sour   run 1  keyCatchers=2  PASS
+JKA t1_sour   run 2  keyCatchers=2  PASS
+JKA t2_rogue  run 1  keyCatchers=2  PASS
+JKA t2_rogue  run 2  keyCatchers=2  PASS
+```
+
+**4/4 pass.** So this is not inherited engine-family behaviour, and JKA's "no known defects" standing
+is confirmed rather than merely untested. The fault is genuinely specific to the JK2 drop.
+
+### Why, structurally
+
+Diffing the completion path between the two drops shows Raven did not add a guard here -- they
+rewrote ICARUS ownership:
+
+```c
+// JK2: every entity carries its own CTaskManager
+if ( ent->taskManager && Q3_TaskIDPending( ent, taskType ) )
+    ent->taskManager->Completed( ent->taskID[taskType] );
+
+// JKA: one central ICARUS instance, entities hold an ID into it
+if ( ent->m_iIcarusID != IIcarusInterface::ICARUS_INVALID && Q3_TaskIDPending( ent, taskType ) )
+    IIcarusInterface::GetIcarus()->Completed( ent->m_iIcarusID, ent->taskID[taskType] );
+```
+
+`CTaskManager::Completed( id )` iterates only the task groups belonging to **that** manager. Under
+JK2's per-entity model a completion therefore only reaches groups owned by the completing entity;
+under JKA's central model it reaches every group. `GetTaskGroup()` likewise gains an `icarus`
+parameter in JKA. The surrounding logic -- `MarkTaskComplete`, `CTaskGroup::Complete`, the group
+branch of `CTaskManager::Wait` -- is byte-identical between the drops.
+
+This is the same category as the fix that worked earlier (`in_camera` in `CG_Shutdown`, present in
+JKA and missing from JK2), but far larger: not one line, an ownership model. It also means the
+defect may have no small correction available -- the JK2-era design is what it is, and porting JKA's
+ICARUS into JK2 would be neither a one-line change nor faithful to the drop.
+
+**Caveat, stated because it weakens the story:** the measured `artus_mine` case had `SET ent=644` and
+`CMP ent=644` -- the same entity setting and completing the task -- and the stalled group's
+`m_ownerID` was also 644. A cross-entity completion mismatch is therefore *not* demonstrated on that
+map, and this structural difference is offered as the reason JKA is immune, not as a measured
+mechanism for the JK2 failure. That distinction has been got wrong five times in this
+investigation already.

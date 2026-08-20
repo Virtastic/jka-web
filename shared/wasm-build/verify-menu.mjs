@@ -34,6 +34,21 @@ const ws = new WS(pg.webSocketDebuggerUrl); let id = 0;
 const S = (m, p) => new Promise(r => { const i = ++id, h = x => { const j = JSON.parse(x); if (j.id === i) { ws.off('message', h); r(j.result); } }; ws.on('message', h); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
 await new Promise(r => ws.on('open', r));
 await S('Runtime.enable', {}); await S('Page.enable', {});
+// Capture uncaught page exceptions and console errors. A wasm trap in the game module surfaces
+// here, NOT through Module.printErr -- and the failing same-map reload ends its engine output
+// mid-script with no abort text, which is exactly what an uncaught trap looks like from inside.
+const pageErrors = [];
+ws.on('message', x => {
+  try {
+    const j = JSON.parse(x);
+    if (j.method === 'Runtime.exceptionThrown') {
+      const d = j.params && j.params.exceptionDetails;
+      pageErrors.push('EXCEPTION: ' + ((d && (d.exception && (d.exception.description || d.exception.value))) || (d && d.text) || 'unknown'));
+    } else if (j.method === 'Runtime.consoleAPICalled' && j.params && j.params.type === 'error') {
+      pageErrors.push('CONSOLE.ERROR: ' + (j.params.args || []).map(a => a.value !== undefined ? a.value : (a.description || '')).join(' '));
+    }
+  } catch (e) {}
+});
 await S('Page.addScriptToEvaluateOnNewDocument', { source: `
   window.__raf = 0; window.__draws = 0;
   const _raf = window.requestAnimationFrame.bind(window);
@@ -55,7 +70,24 @@ await S('Page.addScriptToEvaluateOnNewDocument', { source: `
 `});
 // Boot with NO map: this is the real launch path a player takes, straight to the main menu.
 const DIRECT = !!process.env.DIRECT_MAP;
-await S('Page.navigate', { url: `http://localhost:${PORT}/index.html?args=${encodeURIComponent('+set sv_pure 0' + (DIRECT ? ' +devmap ' + MAP : ''))}` });
+// Uncapped log capture -- index.html's ring caps at 2000 lines and shifts, which hid the cause of
+// the transition defect twice. Keep every line so the second load's script trace survives.
+await S('Page.addScriptToEvaluateOnNewDocument', { source: `
+  window.__allLog = [];
+  (function hook(){
+    try {
+      if (typeof Module === 'object' && Module && !Module.__idt3Hooked) {
+        for (const k of ['print','printErr']) {
+          const orig = Module[k];
+          if (typeof orig === 'function') Module[k] = function(t){ try { window.__allLog.push(String(t)); } catch(e){} return orig.apply(this, arguments); };
+        }
+        Module.__idt3Hooked = true; return;
+      }
+    } catch (e) {}
+    setTimeout(hook, 10);
+  })();
+`});
+await S('Page.navigate', { url: `http://localhost:${PORT}/index.html?args=${encodeURIComponent('+set sv_pure 0' + (process.env.EXTRA_ARGS ? ' ' + process.env.EXTRA_ARGS : '') + (DIRECT ? ' +devmap ' + MAP : ''))}` });
 
 const evalv = async e => { try { const r = await S('Runtime.evaluate', { expression: e, returnByValue: true }); return r && r.result ? r.result.value : undefined; } catch { return undefined; } };
 const raw = async () => { const v = await evalv(`(function(){try{return Module.ccall('idt3_client_state','number',[],[]);}catch(e){return -1;}})()`); return typeof v === 'number' ? v : -1; };
@@ -241,7 +273,7 @@ if (!(escKc & KEYCATCH_UI)) {
 // This matters because the intermittent second-load failure measures `in_camera=1` at the point
 // of refusal. Proving the flag alone is sufficient to block the menu -- and that clearing it is
 // sufficient to restore it -- pins the mechanism down even on runs where the race does not fire.
-{
+if (!process.env.SKIP_CONTRACT) {
   await esc();                       // close the menu first
   await sleep(2500);
   await exec('cam_enable');
@@ -302,7 +334,11 @@ console.log(`after ESC (cleanup)  : keyCatchers=${await kc()}`);
 // gameplay is updating (the flat-namespace duplicate documented in sys_jk.cpp).
 if (process.env.SECOND_MAP) {
   console.log("\n--- reloading the map in the same session ---");
-  await exec(`devmap ${MAP}`);
+  // SECOND_MAP_NAME lets the second load be a DIFFERENT map, to separate 'any second load'
+  // from 'reloading the same map'.
+  const MAP2 = process.env.SECOND_MAP_NAME || MAP;
+  console.log(`(second load: ${MAP2})`);
+  await exec(`devmap ${MAP2}`);
   for (let i = 0; i < 180; i++) { await sleep(1000); if ((await st()) === CA_ACTIVE) break; }
   let r2 = 0, p2 = -1, s2 = 0;
   for (let i = 0; i < 90; i++) {
@@ -325,6 +361,55 @@ if (process.env.SECOND_MAP) {
     await sleep(2500);
   }
   console.log(`after 2nd load, ESC  : keyCatchers=${kc2}`);
+  {
+    await exec('echo ###IDT3NOOP');
+    await sleep(1200);
+    const all = await S('Runtime.evaluate', { returnByValue: true, expression: 'JSON.stringify(window.__allLog||[])' });
+    let arr = []; try { arr = JSON.parse(all.result.value || '[]'); } catch {}
+    const g2 = arr.filter(l => /IDT3MOVE/.test(String(l))).map(l => String(l).trim());
+    const _unused = 0;
+    console.log(`   ids: ${g2.length ? g2.join(' :: ') : '(no reply)'}`);
+
+  }
+  {
+    // Dump the camera ring recorded without I/O on the failing path.
+    await exec('idt3camdump');
+    await sleep(1500);
+    const all = await S('Runtime.evaluate', { returnByValue: true, expression: 'JSON.stringify(window.__allLog||[])' });
+    let arr = []; try { arr = JSON.parse(all.result.value || '[]'); } catch {}
+    const ring = arr.filter(l => String(l).includes('IDT3RING')).map(l => String(l).trim());
+    console.log(`   camera ring (${ring.length}): ${ring.join(' | ')}`);
+  }
+  console.log(`   page exceptions/console errors: ${pageErrors.length}`);
+  for (const e of pageErrors.slice(0, 6)) console.log('     ' + String(e).slice(0, 300));
+  {
+    const all = await S('Runtime.evaluate', { returnByValue: true, expression: 'JSON.stringify(window.__allLog||[])' });
+    let arr = []; try { arr = JSON.parse(all.result.value || '[]'); } catch {}
+    const fsmod = await import('node:fs');
+    if (process.env.LOGFILE) fsmod.writeFileSync(process.env.LOGFILE, arr.join(String.fromCharCode(10)));
+    const cam = arr.filter(l => /camera\(|Server:|ShutdownGame/i.test(l));
+    console.log(`   log lines=${arr.length}; camera/level events:`);
+    for (const l of cam.slice(-18)) console.log('     ' + String(l).trim());
+  }
+  if (!(kc2 & KEYCATCH_UI)) {
+    // NB only meaningful with the menu CLOSED. Run with the menu open, W is consumed by the UI
+    // and this reports 0.0 units on a perfectly responsive player -- which it did once before
+    // this guard was added.
+    // SEVERITY CHECK: a camera that never releases would normally lock the player out of
+    // control. Ask the engine whether the player can still move -- viewpos before/after holding
+    // W. This distinguishes "the pause menu is unavailable" from "the campaign is unplayable
+    // after level 1", which are very different bugs.
+    const p0 = await posOf();
+    for (const type of ["keyDown", "keyUp"]) {
+      await S("Input.dispatchKeyEvent", { type, windowsVirtualKeyCode: 87, nativeVirtualKeyCode: 87, key: "w", code: "KeyW", text: type === "keyDown" ? "w" : undefined });
+      if (type === "keyDown") await sleep(2500);
+    }
+    await sleep(500);
+    const p1 = await posOf();
+    const d = (p0 && p1) ? Math.hypot(p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]) : -1;
+    console.log(`    player movable after 2nd load: ${d < 0 ? "(unknown)" : d.toFixed(1) + " units"}` +
+      (d > 24 ? "  <- still in control" : "  <- NOT moving; player may be locked in the camera"));
+  }
   if (!(kc2 & KEYCATCH_UI)) {
     // Confirmation test. cam_disable (cg_consolecmds.cpp:192 -> CMD_CGCam_Disable) clears
     // in_camera through the engine own path. If ESC then opens the menu, the refusal really was
@@ -355,7 +440,8 @@ if (process.env.SECOND_MAP) {
     const rt = (await evalv("String(window.__idt3_dumpLog ? window.__idt3_dumpLog() : '')") || "");
     const lines = rt.split('\n').map(x => x.trim()).filter(Boolean);
     console.log(`--- engine log tail after 2nd load (${(kc2 & KEYCATCH_UI) ? "PASS" : "FAIL"}) ---`);
-    for (const l of lines.slice(-32)) console.log("    " + l);
+    const cam = lines.filter(l => l.includes("IDT3CAM"));
+    console.log("    camera events: " + (cam.length ? cam.join("  |  ") : "(none)"));
   }
   if (!(kc2 & KEYCATCH_UI)) fail("the in-game menu stopped working after a second map load");
   if (!(kc2 & KEYCATCH_UI)) {

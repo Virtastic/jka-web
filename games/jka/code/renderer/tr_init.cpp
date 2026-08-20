@@ -1099,13 +1099,15 @@ void R_Register( void )
 	r_ext_texture_env_add = Cvar_Get( "r_ext_texture_env_add", "1", CVAR_ARCHIVE | CVAR_LATCH);
 	r_ext_texture_filter_anisotropic = Cvar_Get( "r_ext_texture_filter_anisotropic", "16", CVAR_ARCHIVE );
  
-#ifdef __EMSCRIPTEN__
-	// idTech3-web: dynamic glow needs GL_TEXTURE_RECTANGLE + float render targets that WebGL1
-	// lacks; lock it OFF (CVAR_ROM) so no config/menu can enable the unsupported post-process.
-	r_DynamicGlow = Cvar_Get( "r_DynamicGlow", "0", CVAR_ROM );
-#else
+	// idTech3-web: registered exactly as shipped (CVAR_ARCHIVE). Locking it to CVAR_ROM was
+	// unnecessary and less faithful: the original already has a hardware gate for this, and we
+	// now take that same branch. GLW_InitExtensions() (win_glimp.cpp:1464) enables dynamic glow
+	// only with texture-rectangle + ARB vertex program + render-to-texture + >=4 texture units +
+	// (NV register combiners | ARB fragment program); with any of them missing it sets
+	// g_bDynamicGlowSupported = false AND Cvar_Set("r_DynamicGlow","0"). Our GLimp_Init stands in
+	// for that function and does the same, so a browser behaves exactly like a desktop GPU that
+	// lacks the extensions -- which is what every card older than a GeForce3/Radeon 8500 was.
 	r_DynamicGlow = Cvar_Get( "r_DynamicGlow", "0", CVAR_ARCHIVE );
-#endif
 	r_DynamicGlowPasses = Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_CHEAT );
 	r_DynamicGlowDelta  = Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_CHEAT );
 	r_DynamicGlowIntensity = Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_CHEAT );

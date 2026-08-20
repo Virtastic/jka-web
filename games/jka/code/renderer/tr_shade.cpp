@@ -2489,6 +2489,26 @@ static void RB_IterateStagesGeneric( shaderCommands_t *input )
 		qglDisableClientState( GL_NORMAL_ARRAY );
 #endif
 	}
+#ifdef __EMSCRIPTEN__
+	// idTech3-web: multitexture stages enable unit 1's TEXCOORD ARRAY (DrawMultitextured, and the
+	// dlight paths) and the PC code never disables it — only the Xbox build did, and only there.
+	// Desktop GL ignores texcoords for a disabled unit, so leaving it on is free. Under
+	// emscripten's LEGACY_GL_EMULATION it is not: GLImmediate.createRenderer() derives the vertex
+	// layout from enabledClientAttributes[TEXTURE0+i], so a still-enabled TEXTURE1 array keeps
+	// contributing to `stride` and to the interleaved restride on every later single-texture draw,
+	// with its pointer still aimed at whatever svars.texcoords[1] last held. That is the condition
+	// behind the "GL_TEXTURE1 coords are supplied, but that texture unit is disabled" warning.
+	//
+	// Disable it ONCE here, after the stage loop, rather than inside DrawMultitextured. Doing it
+	// per-draw cost ~40% of the frame rate (measured on t1_sour: 125fps -> 73-78fps), because
+	// glEnableClientState is a no-op when the array is already on, so the original code
+	// invalidated glemu's cached renderer once, while a per-draw disable/enable pair invalidates
+	// it twice for every multitexture draw. Hoisting it to surface granularity keeps the state
+	// from leaking into later surfaces and 2D passes at a cost of one toggle per surface.
+	qglClientActiveTextureARB( GL_TEXTURE1_ARB );
+	qglDisableClientState( GL_TEXTURE_COORD_ARRAY );
+	qglClientActiveTextureARB( GL_TEXTURE0_ARB );
+#endif
 	if (FogColorChange)
 	{
 		qglFogfv(GL_FOG_COLOR, fog->parms.color);

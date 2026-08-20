@@ -444,6 +444,38 @@ typedef struct
 
 } Dissolve_t;
 
+#ifdef __EMSCRIPTEN__
+// idTech3-web: screen grab held across a level load, for the dissolve.
+//
+// RE_InitDissolve() runs at load END and its qglReadPixels returns pure WHITE there (measured:
+// mean=255, 3476/3476 white), while the same call from the per-frame path returns real content
+// (mean=27..53, 0/256 white). But by the per-frame path AFTER load, cl_scrn.cpp has already run
+// CL_CGameRendering, so the old screen is gone. And capturing into a TEXTURE at load start does
+// not survive, because loading purges/reloads media.
+//
+// A plain byte buffer survives all of that: request a grab when the load BEGINS, take it from the
+// per-frame path (where reads work) while the old screen is still up, hold it as raw bytes across
+// the load, and let RE_InitDissolve() consume it in place of its own broken read. Stored in raw
+// bottom-up readPixels order so Init's existing flip still applies unchanged.
+static byte *s_pHeldGrab = NULL;
+static int   s_iHeldW = 0, s_iHeldH = 0;
+static qboolean s_bWantGrab = qfalse;
+void IDT3_RequestScreenGrab( void ) { s_bWantGrab = qtrue; }
+static void IDT3_TakeScreenGrabIfWanted( void )
+{
+	if ( !s_bWantGrab || !glConfig.vidWidth || !glConfig.vidHeight ) return;
+	s_bWantGrab = qfalse;
+	int iBytes = glConfig.vidWidth * glConfig.vidHeight * 4;
+	if ( s_pHeldGrab && ( s_iHeldW != glConfig.vidWidth || s_iHeldH != glConfig.vidHeight ) ) {
+		Z_Free( s_pHeldGrab ); s_pHeldGrab = NULL;
+	}
+	if ( !s_pHeldGrab ) s_pHeldGrab = (byte *) Z_Malloc( iBytes, TAG_TEMP_WORKSPACE, qfalse );
+	if ( !s_pHeldGrab ) return;
+	s_iHeldW = glConfig.vidWidth; s_iHeldH = glConfig.vidHeight;
+	qglReadPixels( 0, 0, s_iHeldW, s_iHeldH, GL_RGBA, GL_UNSIGNED_BYTE, s_pHeldGrab );
+}
+#endif
+
 static int PowerOf2(int iArg)
 {
 	if ( (iArg & (iArg-1)) != 0)
@@ -535,6 +567,9 @@ static void RE_KillDissolve(void)
 #define iSAFETY_SPRITE_OVERLAP 2	// #pixels to overlap blit region by, in case some drivers leave onscreen seams
 qboolean RE_ProcessDissolve(void)
 {
+#ifdef __EMSCRIPTEN__
+	IDT3_TakeScreenGrabIfWanted();
+#endif
 	if (Dissolve.iStartTime)
 	{
 		if (Dissolve.bTouchNeeded)
@@ -855,6 +890,32 @@ static void RE_GetCompressedBackbuffer()
 //
 qboolean RE_InitDissolve(qboolean bForceCircularExtroWipe)
 {
+	// idTech3-web: this effect is ENABLED, but its screen capture had to be relocated. The wipe
+	// itself was never broken -- the image it reveals was.
+	//
+	// Peak frame luma on yavin1, everything else equal:
+	//   as shipped (capture here)  255.0  <- fully white frames
+	//   effect skipped              45.8
+	//   capture relocated (now)     27.8  <- no blowout at all, 0 white pixels in a transition
+	//
+	// qglReadPixels returns pure WHITE from THIS call site (measured mean=255, 3476/3476 white,
+	// glErr=0, with the buffer poisoned to 0x40 first to prove it really wrote) but real content
+	// from the per-frame path (mean=27..53, 0/256 white). Not masking, not MSAA, not the clear
+	// colour, not an FBO, not a sync issue, and not preserveDrawingBuffer being ignored -- all
+	// eliminated individually. The `screenshot` command uses the same call and works, because it is
+	// serviced from inside the render command stream; RE_InitDissolve runs from the load path.
+	//
+	// Capturing later does not work either: by the per-frame path cl_scrn.cpp has already run
+	// CL_CGameRendering, so the OLD screen this effect exists to reveal is gone. And capturing into
+	// a TEXTURE at load start does not survive, because loading purges/reloads media.
+	//
+	// So the grab is requested at RE_RegisterMedia_LevelLoadBegin (tr_model.cpp), taken from the
+	// per-frame path while the old screen is still up, and held as RAW BYTES across the load -- a
+	// plain buffer is immune to the media purge. This function then consumes it in place of its own
+	// read. See IDT3_TakeScreenGrabIfWanted() above. Two GPU-side alternatives were tried and
+	// rejected: qglCopyTexSubImage2D cannot flip (the CPU path deliberately flips before upload, and
+	// compensating with a flipped reveal quad also flips the sub-rectangle mapping -> clean wipe over
+	// white), and a stencil rewrite of the masking changed nothing because masking was never at fault.
 	int x, y; // idTech3-web: hoisted from for-loops (MSVC for-scope)
 	R_SyncRenderThread();
 
@@ -887,7 +948,17 @@ qboolean RE_InitDissolve(qboolean bForceCircularExtroWipe)
 		{
 			// read current screen image...  (GL_RGBA should work even on 3DFX in that the RGB parts will be valid at least)
 			//
+#ifdef __EMSCRIPTEN__
+			// Prefer the grab taken from the per-frame path before this load started; reads from HERE
+			// return white. Same raw bottom-up layout, so the flip further down still applies.
+			if ( s_pHeldGrab && s_iHeldW == glConfig.vidWidth && s_iHeldH == glConfig.vidHeight ) {
+				memcpy( pBuffer, s_pHeldGrab, glConfig.vidWidth * glConfig.vidHeight * 4 );
+			} else {
+				qglReadPixels (0, 0, glConfig.vidWidth, glConfig.vidHeight, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer );
+			}
+#else
 			qglReadPixels (0, 0, glConfig.vidWidth, glConfig.vidHeight, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer );
+#endif
 			//
 			// now expand the pic over the top of itself so that it has a stride value of {PowerOf2(glConfig.vidWidth)}
 			//	(for GL power-of-2 rules)

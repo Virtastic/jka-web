@@ -15,7 +15,7 @@
 #include "b_local.h"
 #include "anims.h"
 #include "g_navigator.h"
-#include "g_Vehicles.h"
+#include "g_vehicles.h"
 // idTech3-web: MSVC6/7 auto-PCH leaked these decls into this TU; include explicitly
 #include "g_nav.h"
 // idTech3-web: auto-PCH leak, second pass

@@ -42,7 +42,7 @@ template <class T>
 class handle_pool_base : public pool_root<T>
 {
 public:
-	typedef typename T TStorageTraits;
+	typedef T TStorageTraits;
 	typedef typename T::TValue TTValue;
  	////////////////////////////////////////////////////////////////////////////////////
 	// Capacity Enum

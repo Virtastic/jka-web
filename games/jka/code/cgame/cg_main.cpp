@@ -2087,6 +2087,35 @@ typedef struct cgMiscEntData_s
 static cgMiscEntData_t	MiscEnts[MAX_MISC_ENTS]; //statically allocated for now.
 static int				NumMiscEnts=0;
 
+#ifdef __EMSCRIPTEN__
+// idTech3-web: clear the misc-model cache at the start of every map.
+//
+// On PC the cgame is a DLL reloaded per map, so these statics come back zeroed for free;
+// Raven only had to reset them by hand on Xbox, and their comment on that #ifdef wonders why
+// PC gets away with it. We are in the Xbox situation -- but the obvious place, CG_PreInit(),
+// does NOT work here, and the reason is worth recording:
+//
+// Sys_GetGameAPI() re-instantiates qagame.wasm per map via idt3_dlopen_fresh(), and
+// emscripten's dynamic linker has a FLAT symbol namespace. The second instance's exported
+// names are already claimed by the first, so calls resolve back into instance #1 while
+// dlsym() on the new handle reaches instance #2. Measured by printing &NumMiscEnts from both
+// sites across three loads of one map:
+//     map 1  CG_PreInit 0x5f44978   spawn 0x5f44978   (same)
+//     map 2  CG_PreInit 0xeba4978   spawn 0x5f44978   (reset hit the wrong instance)
+//     map 3  CG_PreInit 0xf3a4978   spawn 0x5f44978
+// CG_PreInit runs via dlsym on the fresh handle, so it kept zeroing a copy nothing plays on,
+// while the count on the live instance climbed 400/800/1200/1600/2000 and the map load then
+// died on "Maximum misc_model_static reached (2000)".
+//
+// InitGame() is reached through ge->Init, i.e. the instance gameplay actually runs on, so the
+// reset belongs there and this is the hook it calls.
+void CG_ResetMiscEnts( void )
+{
+	NumMiscEnts = 0;
+	memset( MiscEnts, 0, sizeof( MiscEnts ) );
+}
+#endif
+
 void CG_CreateMiscEntFromGent(gentity_t *ent, const vec3_t scale, float zOff)
 { //store the model data
 	if (NumMiscEnts == MAX_MISC_ENTS)
@@ -2220,6 +2249,8 @@ void CG_PreInit() {
 //moved from CG_GameStateReceived because it's loaded sooner now
 	CG_InitLocalEntities();
 
+// idTech3-web: the reset this needs is NOT here -- see CG_ResetMiscEnts() below and its
+// call from InitGame(). Raven's _XBOX guard is left exactly as shipped.
 #ifdef _XBOX	// I can't believe that this isn't necessary on PC, but I'll hold off
 	NumMiscEnts = 0;
 	memset( MiscEnts, 0, sizeof(MiscEnts) );

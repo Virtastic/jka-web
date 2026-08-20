@@ -714,6 +714,33 @@ void InitGame(  const char *mapname, const char *spawntarget, int checkSum, cons
 
 	G_InitMemory();
 
+#ifdef __EMSCRIPTEN__
+	// idTech3-web: reset the .ROF cache here, because gameplay always runs on ONE instance of
+	// our wasm side module. On PC the game is a DLL unloaded and reloaded for every map, so
+	// `num_roffs` (a file-scope static in g_roff.cpp) starts each map at 0 for free; nothing in
+	// the original ever assigns it, because nothing there ever had to. (Sys_GetGameAPI does
+	// re-instantiate the module per map, but emscripten's flat symbol namespace keeps the
+	// gameplay path bound to the first instance -- see CG_ResetMiscEnts() for the measurement.)
+	//
+	// Two things go wrong without this, and the second is the serious one:
+	//   * the count climbs across map loads until MAX_ROFFS is hit, after which every further
+	//     .ROF is refused -- "MAX_ROFFS count exceeded. Skipping load of .ROF" followed by
+	//     "ROFF camera playback failed", i.e. scripted cameras and moving objects stop working;
+	//   * every cached entry points into the G_Alloc arena that G_InitMemory() just reset one
+	//     line above, so a name lookup that hits a previous map's entry hands back a pointer
+	//     into reused memory.
+	// Found by map-sweep.mjs loading the campaign back-to-back in one session.
+	num_roffs = 0;
+	memset( roffs, 0, MAX_ROFFS * sizeof( roffs[0] ) );	// `extern roff_list_t roffs[]` is an incomplete type
+
+	// Same reasoning, cgame side: the misc-model cache is a static in cg_main.cpp that PC
+	// gets re-zeroed by the DLL reload. Reset from HERE, not from CG_PreInit -- see the
+	// comment on CG_ResetMiscEnts() for the measurement showing why CG_PreInit reaches the
+	// wrong module instance.
+	extern void CG_ResetMiscEnts( void );
+	CG_ResetMiscEnts();
+#endif
+
 	// set some level globals
 	memset( &level, 0, sizeof( level ) );
 	level.time = levelTime;

@@ -6,7 +6,7 @@
 #include "b_public.h"
 #include "anims.h"
 #include "wp_saber.h"
-#include "g_Vehicles.h"
+#include "g_vehicles.h"
 // idTech3-web: MSVC6/7 auto-PCH leaked these decls into this TU; include explicitly
 #include "../cgame/cg_local.h"
 #if !defined(RUFL_HSTRING_INC)

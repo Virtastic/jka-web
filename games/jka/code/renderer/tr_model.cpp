@@ -5,7 +5,7 @@
 #include "../server/exe_headers.h"
 
 #include "tr_local.h"
-#include "MatComp.h"
+#include "matcomp.h"
 #include "../qcommon/sstring.h"
 
 #define	LL(x) x=LittleLong(x)
@@ -345,6 +345,12 @@ static qboolean gbAllowScreenDissolve = qtrue;
 void RE_RegisterMedia_LevelLoadBegin(const char *psMapName, ForceReload_e eForceReload, qboolean bAllowScreenDissolve)
 {
 	gbAllowScreenDissolve = bAllowScreenDissolve;
+#ifdef __EMSCRIPTEN__
+	// idTech3-web: grab the CURRENT screen from the per-frame path before this load replaces it;
+	// RE_InitDissolve()'s own read at load END returns white. See tr_draw.cpp.
+	extern void IDT3_RequestScreenGrab( void );
+	if ( bAllowScreenDissolve ) IDT3_RequestScreenGrab();
+#endif
 
 	tr.numBSPModels = 0;
 

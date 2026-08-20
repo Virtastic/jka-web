@@ -40,7 +40,7 @@ template <class T>
 class pool_root : public ratl_base
 {
 public:
-	typedef typename T TStorageTraits;
+	typedef T TStorageTraits;
 	typedef typename T::TValue TTValue;
     ////////////////////////////////////////////////////////////////////////////////////
 	// Capacity Enum

@@ -9,8 +9,8 @@
 #include "../mp3code/mp3struct.h"
 
 // Open AL Specific
-#include "openal\al.h"
-#include "openal\alc.h"
+#include "OpenAL\al.h"
+#include "OpenAL\alc.h"
 #include "eax\eax.h"
 #if defined(__EMSCRIPTEN__)
 // idt3-web: EAX Manager (eax\eaxman.h) is Win32/COM (DirectSound, IUnknown, LoadLibrary).

@@ -4,7 +4,7 @@
 #include "g_functions.h"
 #include "objectives.h"
 
-#include "../Icarus/IcarusInterface.h"
+#include "../icarus/IcarusInterface.h"
 // idTech3-web: auto-PCH leak, second pass
 #include "../cgame/cg_local.h"
 

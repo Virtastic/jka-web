@@ -4735,3 +4735,49 @@ proposing mechanisms until one is measured end to end.
 
 **Not established:** why id 137 specifically never completes, and why the first load of the same map
 with the same script always does.
+
+## Bisecting the conditions, after five failed mechanism guesses
+
+Having published and retracted five mechanisms in a row, the approach changed: stop proposing how
+the fault works and start measuring *where* it happens. Same-map reload (`SECOND_MAP=1`) run
+against several maps:
+
+| map | same-map reload |
+|---|---|
+| `pit` | PASS 2/2 |
+| `valley` | PASS 2/2 |
+| `artus_topside` | PASS 2/2 |
+| `artus_mine` | FAIL ~1 in 3 |
+| `kejim_post` | **FAIL 2/2** |
+
+Two useful results.
+
+**`kejim_post` is a reliable reproducer.** That matters more than any single hypothesis: most of the
+retractions in this investigation trace to drawing conclusions from small samples of a one-in-three
+fault. With a map that fails every time, two runs mean something.
+
+**`artus_topside` passes reliably.** So this is not "any JK2 map" and not "any map with a script" --
+there is a real difference between two campaign maps of the same game, one failing every time and
+one passing every time. That difference is inspectable in their content rather than guessable.
+
+### A claim not to repeat
+
+An earlier draft of this section read the `camera events: 0` column for `pit`/`valley` as evidence
+those maps have no opening cutscene. That inference is void: `g_ICARUSDebug` was not enabled for
+that batch, so camera lines would not have been logged for **any** map in it, including the ones
+that failed. The PASS/FAIL split is sound; the cutscene explanation is not established, and the
+claim that the defect requires a cutscene map remains unproven.
+
+### Harness limits found the hard way
+
+Two batches were lost to the measurement setup rather than the engine, both self-inflicted:
+
+* `g_ICARUSDebug 4` on `kejim_post` -- a map that opens with a ~70-second crawl -- floods the
+  uncapped log capture until `JSON.stringify` on the array stalls. The run hung ~20 minutes and had
+  to be killed. The flooding risk was already noted in this log before being walked into.
+* A `timeout 400` added to prevent a repeat was **below the run's honest cost**: `kejim_post` needs
+  17 ESC presses to clear its intro on the first load alone, and the timeout truncated healthy runs
+  mid-reload, producing empty output that looked like a probe failure.
+
+A timeout has to be set from a measured run, not from an assumption about how long the work should
+take.

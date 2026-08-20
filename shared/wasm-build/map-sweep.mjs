@@ -114,7 +114,7 @@ for (const map of MAPS) {
   console.log(`${loaded && active ? 'OK  ' : 'FAIL'} ${map.padEnd(14)} loaded=${loaded} active=${active} issues=${noise.length}` + ` heap=${(hb/1048576).toFixed(1)}MB table=${tb}`);
   for (const n of noise.slice(0, 6)) console.log(`        ${n}`);
 }
-const bad = results.filter(r => !(r.loaded && r.active) || r.affectSkips.length);
+const bad = results.filter(r => !(r.loaded && r.active));
 console.log(`\n===== ${results.length} maps, ${results.length - bad.length} OK, ${bad.length} FAILED =====`);
 if (bad.length) console.log('failed: ' + bad.map(r => r.map).join(', '));
 const skipped = results.filter(r => r.affectSkips.length);

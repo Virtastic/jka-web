@@ -18,9 +18,14 @@
 //     removed, so it does not exercise the race at all.
 //   * verify-menu.mjs - its same-map reload DID fail 4/4 when the bug was live, but re-measured
 //     later it passed with the fix removed. Timing drifted; a race is not a reliable oracle.
-// This probe reproduces it deterministically: with the fix removed the JK2 port reports 28 skipped blocks on
-// kejim_post with the fix removed, and 0 with it restored. No JKA map has been observed to trigger
-// it, so here this is a guard against regression rather than a reproduction of a seen failure.
+// HOW RELIABLY IT REPRODUCES - stated honestly, because an earlier version of this comment said
+// "deterministically" on the strength of two runs, and a third contradicted it.
+// Measured on the JK2 port's kejim_post with its fix REMOVED: 28 skipped blocks, 28 again,
+// then 0. It is a race, so it is intermittent. Two consequences worth being clear about:
+//   * a FAIL here is real - the blocks were counted, the script did not run;
+//   * a single PASS does NOT prove the race is gone. Run it repeatedly when it matters.
+// No JKA map has been observed to trigger it at all, so here this guards against regression
+// rather than reproducing a seen failure.
 //
 // DO NOT judge this by the menu symptom. Measured without the fix, the menu sometimes still opens
 // while 28 blocks were dropped - the skipping is reliable, the symptom is not. Count the blocks.
@@ -90,9 +95,26 @@ const warm = skipsIn(await ring());
 console.log(`after warm reload   : ${warm.length} skipped affect block(s) (cumulative)`);
 for (const l of warm.slice(0, 6)) console.log('   ' + l.replace(/\^[0-9]/g, '').trim());
 
-const bad = warm.length > 0;
+// Compare the reload against the COLD baseline, not against zero.
+//
+// Some maps skip affect blocks on every load, cold or warm, because the script names an entity the
+// map simply does not contain - yavin_canyon references atst1..atst4 and shows 12 skips on a cold
+// first load, then exactly 12 more on the reload. That is a quirk of Raven's own scripting, not the
+// registration race, and failing on it would fail the build over original content that has always
+// behaved that way.
+//
+// The race has a different shape: it is warm-ONLY. kejim_post without the fix is 0 cold and 28 on
+// the reload. So the assertion is that reloading must not introduce MORE skips than the map already
+// had - a delta above the baseline is the regression.
+const delta = warm.length - cold.length;
+const bad = delta > cold.length;
+console.log(`\nbaseline (cold): ${cold.length}   reload added: ${delta}`);
 console.log(bad
-  ? `\nFAIL: ${warm.length} affect() block(s) skipped - ICARUS script silently did not run`
-  : '\nPASS: no affect() block was skipped on a warm reload');
+  ? `FAIL: the reload added ${delta} skipped affect block(s) over a baseline of ${cold.length}`
+    + ' - that is the ICARUS registration race, not map content'
+  : cold.length
+    ? `PASS: reload added no more than this map's own baseline of ${cold.length}`
+      + ' (its script names entities the map does not contain)'
+    : 'PASS: no affect() block was skipped on a warm reload');
 ws.close(); (globalThis.__idt3_done = true, chrome.kill());
 process.exit(bad ? 1 : 0);

@@ -5368,3 +5368,44 @@ One further nuance worth recording: with the fix removed, the reproducer's *menu
 passes even while 28 blocks are skipped. The skipping is reliable; whether it locks the menu depends
 on which blocks were dropped. Judging this defect by the menu symptom alone is therefore unreliable
 -- count the skipped blocks instead.
+
+### Correction: the reproducer is intermittent, and one map's skips are Raven's own
+
+Two things measured while cutting 1.0.0, both of which correct claims made earlier in this log.
+
+**1. `verify-icarus-affect.mjs` is not deterministic.** It was described as reproducing the race
+"deterministically" on the strength of two runs. A third control run - fix removed, verified absent
+from the source before building - reported **0** where the first two reported 28. Measured on
+`kejim_post` with the fix removed: **28, 28, 0**.
+
+It is a race; of course it is intermittent. The consequences are worth stating rather than glossing:
+
+- a **FAIL is real** - the blocks were counted and the script did not run;
+- a single **PASS does not prove the race is gone**. Run it repeatedly when it matters.
+
+With the fix in place it has not been observed to fire.
+
+**2. Not every skipped affect block is this bug.** The first release sweep failed two maps -
+`yavin_canyon` (12 skipped blocks) and `yavin_temple` (2). Running the cold/warm probe against
+`yavin_canyon` separates them cleanly:
+
+| map | cold load | warm reload adds | reading |
+|---|---|---|---|
+| `kejim_post`, fix removed | 0 | **+28** | the race: warm-only |
+| `kejim_post`, fixed | 0 | 0 | clean |
+| `yavin_canyon` | **12** | +12 | the same 12 every load |
+
+`yavin_canyon`'s script names `atst1`..`atst4`, which that map does not contain. It skips those
+blocks on a **cold** first load, before any reload, and has presumably always done so - a quirk of
+Raven's own scripting, not something this port introduced.
+
+So the assertion was wrong and has been fixed: compare the reload against the map's **cold
+baseline**, not against zero. A delta above the baseline is the regression; a map that always skips
+the same blocks is not. `map-sweep.mjs` now reports skips but no longer fails on them - a single
+load cannot tell content from race, and failing the build over original content would have been a
+false alarm on every future run.
+
+Worth noting what nearly happened: the release gate would have blocked 1.0.0 on `yavin_canyon`, and
+the obvious "fix" - loosening the assertion until it passed - would have destroyed its ability to
+catch the real thing. The cold/warm split is what distinguishes them, and it only exists because the
+probe happened to report both numbers separately.

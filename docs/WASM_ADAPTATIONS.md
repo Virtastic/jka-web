@@ -4443,3 +4443,52 @@ This is the same shape as the two runs trusted earlier whose *build* had silentl
 fix is the same: a failed preparation step must stop the pipeline rather than let measurement
 proceed on stale code. `build.errs` is already checked for the compile side; the probe edit now
 asserts per line so a mismatch fails loudly instead of silently no-op'ing.
+
+## ROOT CAUSE: the reload's wait holds a task id from the previous load's numbering
+
+Recording every id passed to `CTaskManager::Completed()` alongside the stalled group's pending id,
+across nine runs (five passing, one failing in the same batch, plus six more failing):
+
+| | pending id | Completed() calls | pending id ever completed |
+|---|---|---|---|
+| PASS x5 | **1** | 296 | **6 times** |
+| FAIL    | **137** (135 in two runs) | 325 | **0** |
+
+`firstIds` in every run reads `0 1 2 3 4 5 6 7 0 1 3 0`. So the second load issues **low, freshly
+numbered** task ids, while a failing run's `KYLE_WALK` group is waiting on **137** -- an id from the
+*previous* load's numbering. Nothing the new map ever completes can match it, so the group never
+completes, the script never reaches `camera( DISABLE )`, `in_camera` stays set, and
+`UI_SetActiveMenu` returns at its first line.
+
+This is not a timing fault. It is stale state carried across the map load -- the same family as the
+four fixes already committed (`num_roffs`, `NumMiscEnts`, `in_camera`, and the navigator
+use-after-free), all of which exist because the original relies on a DLL unload that a persistent
+wasm side module never performs.
+
+Two source facts make it possible: `CTaskManager::AddTaskGroup()` **reuses a group by name** if one
+already exists, and `ICARUS_Shutdown()` frees per-entity ICARUS state only for entities marked
+`inuse`.
+
+### One hypothesis tested and rejected
+
+The obvious suspect was the player entity being skipped by that `inuse` check, leaving Kyle's task
+manager (and his `KYLE_WALK` group) alive across the load. Measured at shutdown, six failing runs:
+
+```
+IDT3SD shutdowns=1 ent0InUse=1 ent0HadSequencer=1
+```
+
+Entity 0 is `inuse` and holds a sequencer, so `ICARUS_FreeEnt()` *is* called for it. The player's
+state is freed correctly and the stale id survives anyway.
+
+That relocates the search rather than ending it: the group is owned by whichever entity's task
+manager the script runs on, and the cutscene runs on a `target_scriptrunner`, not on Kyle. Only
+entity 0 was checked. The next measurement is the same `inuse` / sequencer check across **all**
+entities at shutdown, and specifically for the scriptrunner that owns `cinematics/cinematic4`.
+
+### Why the sampling matters here
+
+The same instrumented build produced 3/3 pass in one batch and 6/6 fail in the next. Earlier
+instrumented builds ran 9/9 fail. The fault is genuinely intermittent and any batch small enough to
+be convenient is small enough to mislead -- which is exactly how a "2/2 pass" was once recorded in
+this log as a fix that was not one.

@@ -4318,3 +4318,45 @@ That is the fourth time in this investigation the instrument turned out to be pa
 after the probe-generated `Menus_ActivateByName` warning, the runs invalidated by a dead dev server,
 and a print cap mistaken for a result. Ruling the harness out explicitly, rather than assuming it
 innocent, is why this one can now be stated plainly.
+
+## ROOT CAUSE NAMED: the reload cutscene deadlocks on `wait("KYLE_WALK")`
+
+Counting every ICARUS task-group wait and how many come back incomplete, two failing runs
+agreeing:
+
+```
+IDT3MISS  count=0 group=(none)          <- no wait ever hits a MISSING group
+IDT3STALE stale=0 waits=481             <- 481 timed waits, none with a carried-over timestamp
+IDT3GRP   total=3436 incomplete=3349 name=KYLE_WALK
+```
+
+The cutscene is blocked on `wait( "KYLE_WALK" )`. `CTaskManager::Wait` re-queues a group wait every
+frame until `group->Complete()` returns true, so a group that never completes is an infinite stall
+-- 3,349 incomplete evaluations of the same wait. The script therefore never reaches its
+`camera( DISABLE )`, `in_camera` stays set, and `UI_SetActiveMenu` returns at its first line. Every
+symptom recorded above follows from this one wait.
+
+**The shape is a deadlock, and it explains why only the reload fails.** `KYLE_WALK` is a scripted
+walk for the player character. But the same cutscene has already called `CGCam_Enable`, whose own
+comment is *"Player zero not allowed to do anything"* -- and the player was measured sitting
+unplaced at the world origin `(0 0 6)` for 264 seconds on exactly these runs. A frozen player cannot
+finish a walk, and the walk is what would release the camera that froze him.
+
+**A correction to an earlier entry.** The task-group path was recorded above as eliminated. That was
+wrong: only the `group == NULL` branch had been measured (`IDT3MISS count=0`). The other branch --
+group found, `Complete()` false forever -- was never instrumented, and it is the one that fires.
+An elimination is only as wide as the branch the counter actually covers.
+
+Two genuine eliminations do come out of the same run, now unambiguous because 481 timed waits prove
+the machinery was exercised: no wait hits a missing group, and no wait carries a timestamp from the
+previous map.
+
+### Where to look next
+
+Why the walk cannot complete on a second load when it completes in 26.4s on the first. The
+candidates are narrow now: whether the player entity is placed before the cutscene starts, whether
+the navgoal the walk targets exists on the reload, and whether `Q3_TaskIDComplete( ent,
+TID_MOVE_NAV )` is reachable for an entity the camera has frozen. Note the port already carries a
+navigation fix (`CNavigator::Free()` use-after-free), so nav state on reload is a reasonable first
+suspect -- though `Navigation Data Cleared` does appear in the shutdown log, and no nav error is
+reported.

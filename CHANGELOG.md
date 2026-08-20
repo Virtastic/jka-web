@@ -13,6 +13,10 @@ This project uses [Semantic Versioning](https://semver.org/).
   judges on the worst single reload rather than one sample. The race is intermittent — three
   single-shot control runs with the fix removed gave 28, 28 and 0 — so one clean reload was weak
   evidence. A PASS is now stronger, though still not a proof of absence.
+- `verify-menu.mjs` re-focuses the canvas before dispatching keys. `yavin1` failed
+  intermittently (5 pass / 4 fail over 9 runs) with "ESC did not close the in-game menu";
+  keyboard focus was drifting off the canvas, so ESC could not close what ESC had opened.
+  Now 10 runs, 10 pass, with no regression on other maps.
 - `verify-menu.mjs` detects a map that auto-advances (yavin1 moves to yavin1b partway through)
   and reports the level-dependent checks as SKIPPED rather than FAILED. Those checks were
   measuring a level the test was not aiming at, which is a property of the map rather than a

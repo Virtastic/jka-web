@@ -5423,3 +5423,47 @@ Recorded here so a future reader does not mistake them for a regression:
 The sweep reports these; it does not fail on them. `verify-icarus-affect.mjs` compares a
 reload against the map's own cold baseline, so these pass while a genuine warm-only delta still
 fails.
+
+### The yavin1 "failure" was keyboard focus, not the engine
+
+`verify-menu` failed on `yavin1` intermittently - 5 pass / 4 fail over 9 runs - always reporting
+`ESC did not close the in-game menu`. Three explanations were tried; only the third survives.
+
+**What the data actually said.** Diffing a passing run against a failing one gave an exact
+correlation across all nine:
+
+| F1 precondition | outcome |
+|---|---|
+| `true` (landed first press) | PASS |
+| `true (after 2 presses)` | FAIL |
+
+The F1 probe presses an unrelated bound key and waits for its echo. Its retry count was never
+supposed to be interesting - it is a precondition, not a measurement - but it turned out to be the
+best available proxy for whether input was being delivered at all. And crucially, keys *were*
+reaching the engine in the failing runs: F1 echoed, and ESC successfully **opened** the menu. What
+failed was closing it, with all eight close retries lost.
+
+Events arriving well enough to open a menu but not to close it is not "events are dropped". It is
+focus: the canvas loses keyboard focus part-way through, which several runs also surfaced as
+`WrongDocumentError: ... not valid for pointer lock`.
+
+`esc()` and the key probe now call `focus()` on the canvas before dispatching. Deliberately
+`focus()` and not a synthetic click - with a menu open, a click lands on whichever menu item happens
+to be under the cursor.
+
+**Result: 10 runs, 10 PASS**, where the same test was 5/9 before. Two of those runs still needed a
+second F1 press and passed anyway - the exact signature that previously meant certain failure. Input
+still degrades occasionally; the refocus recovers from it. That the old correlation *broke* is the
+evidence, more than the pass count.
+
+**Two wrong turns, recorded because both were plausible:**
+
+1. *yavin1 auto-advances to yavin1b, so the test is measuring the wrong level.* True of the map, and
+   level-dependent checks were made skippable because of it - but the detection never fired on a
+   failing run. Not the cause.
+2. *The close path pressed ESC once while the open path retried.* A real asymmetry, and worth fixing
+   on its own merits; three further failures followed it. Not the cause either.
+
+The lesson is the one this log keeps relearning: a probe's incidental output - here a retry counter
+nobody was reading - was the thing that identified the fault, and only because a passing and a
+failing run were diffed line by line instead of the failing one being read on its own.

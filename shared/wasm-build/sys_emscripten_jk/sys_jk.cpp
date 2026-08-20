@@ -177,11 +177,22 @@ void *Sys_GetGameAPI( void *parms ) {
 	char fname[MAX_OSPATH];
 	void *(*GetGameAPI)( void * );
 	Com_sprintf( fname, sizeof( fname ), IDT3_FSROOT "/qagame.wasm" );
-	// JK2/JKA unload and reload the game module on every map load, and rely on it
-	// coming back with fresh statics. Emscripten's by-name dlopen cache silently
-	// returns the SAME instance instead (nodelete => dlclose never drops it), so
-	// statics would survive across maps. idt3_dlopen_fresh() forces a real
-	// re-instantiation; see sys_emscripten/idt3_dlopen.c for the full story.
+	// idTech3-web: these engines unload and reload the game module on every map load and rely on
+	// it coming back with fresh statics. Emscripten's by-name dlopen cache returns the SAME
+	// instance instead (nodelete => dlclose never drops it), so idt3_dlopen_fresh() forces a real
+	// re-instantiation; see sys_emscripten/idt3_dlopen.c.
+	//
+	// MEASURED COST, since that file called it "bounded by how rarely maps restart" -- a campaign
+	// is 34 map loads, so it is not rare. map-sweep.mjs reports the wasm function table growing by
+	// exactly 60 entries per map load (8947 -> 9367 across seven loads of t1_sour), plus one
+	// retained WebAssembly.Instance of the ~2MB module each time, which never appears in HEAPU8.
+	//
+	// TRIED AND REVERTED: replacing this with a plain dlopen removes the growth completely (table
+	// pinned at 8947 across eight loads) and JKA survived 8x t1_sour -- but JK2 then failed to
+	// load the SAME map a second time (kejim_post: first load OK, every reload loaded=false
+	// active=false, silently). So the re-instantiation is load-bearing here even though a separate
+	// measurement showed gameplay staying on instance #1 for the cgame statics. Correctness over
+	// the leak: it stays. Anyone revisiting it should start from that contradiction.
 	game_library = idt3_dlopen_fresh( fname );
 	if ( !game_library ) {
 		game_library = dlopen( fname, RTLD_NOW );   // correct for a first load

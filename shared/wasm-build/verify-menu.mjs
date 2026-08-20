@@ -105,8 +105,38 @@ const raw = async () => { const v = await evalv(`(function(){try{return Module.c
 const st  = async () => (await raw()) & 0xff;
 const kc  = async () => (await raw()) >> 8;
 const exec = c => evalv(`(function(){try{Module.ccall('idt3_exec_cmd',null,['string'],[${JSON.stringify(c)}]);return 1;}catch(e){return 0;}})()`);
-const esc = async () => { for (const type of ['keyDown', 'keyUp'])
+// Put keyboard focus back on the canvas before dispatching keys.
+//
+// Measured on yavin1 over 8 runs, the correlation is exact: every run where the F1 precondition
+// needed a retry went on to FAIL with 'ESC did not close the menu', and every run where F1
+// landed first time PASSED. Keys demonstrably reach the engine (F1 echoes) and ESC opens the
+// menu, so this is not events being lost outright - it is focus drifting off the canvas, which
+// several runs also show as 'WrongDocumentError: ... not valid for pointer lock'.
+//
+// focus() rather than a synthetic click: with a menu open, a click lands on whatever menu item
+// is under the cursor.
+const refocus = async () => {
+  await evalv("(function(){var c=document.getElementById('canvas');if(c&&c.focus)c.focus();try{window.focus();}catch(e){}return 1;})()");
+};
+
+const esc = async () => { await refocus(); for (const type of ['keyDown', 'keyUp'])
   await S('Input.dispatchKeyEvent', { type, windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27, key: 'Escape', code: 'Escape' }); };
+
+// Close the menu, retrying, and report whether it actually closed.
+//
+// The open path already retries (ESC_TRIES) because a single ESC is not reliably delivered -
+// measured on yavin1, opening the menu took NINE presses. The close path pressed once and
+// trusted it, so one dropped ESC left the menu up and every later assertion inherited it: the
+// camera-contract check then read keyCatchers=2 and blamed the contract, when in fact the menu
+// from the previous step had simply never closed. Same delivery problem, opposite direction.
+const closeMenu = async (tries = 8) => {
+  for (let i = 0; i < tries; i++) {
+    await esc();
+    await sleep(1500);
+    if (!((await kc()) & KEYCATCH_UI)) return true;
+  }
+  return false;
+};
 const sig = async () => {
   const r = await S('Page.captureScreenshot', { format: 'png' });
   if (!r || !r.data) return null;
@@ -256,7 +286,7 @@ if (playKc & KEYCATCH_UI) fail('the UI still owns input during gameplay — the 
 // unrelated key to an echo and press it. ESC itself cannot be used for this -- CL_KeyEvent
 // handles A_ESCAPE specially and returns before bindings are consulted -- so a silent ESC would
 // otherwise be ambiguous between "the key never arrived" and "the menu did not open".
-const key = async (code, vk) => { for (const type of ['keyDown', 'keyUp'])
+const key = async (code, vk) => { await refocus(); for (const type of ['keyDown', 'keyUp'])
   await S('Input.dispatchKeyEvent', { type, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, key: code === 'F1' ? 'F1' : code, code }); };
 await exec('bind F1 "echo ###IDT3KEYOK"');
 await sleep(1000);
@@ -325,14 +355,21 @@ if (!(escKc & KEYCATCH_UI)) {
 // of refusal. Proving the flag alone is sufficient to block the menu -- and that clearing it is
 // sufficient to restore it -- pins the mechanism down even on runs where the race does not fire.
 if (!process.env.SKIP_CONTRACT) {
-  await esc();                       // close the menu first
-  await sleep(2500);
+  // Close it properly before testing the contract. A single unverified ESC here was the
+  // second flake in this test: when the press was dropped the menu stayed up, and the check
+  // below then read keyCatchers=2 and blamed the camera contract for a menu that had simply
+  // never closed. Measured on yavin1 - opening took 9 presses in the same run.
+  const preClosed = await closeMenu();
+  if (!preClosed) {
+    console.log('   SKIP: camera contract - the menu could not be closed before the camera test,');
+    console.log('         so its result would describe the stuck menu, not the contract.');
+  }
   await exec('cam_enable');
   await sleep(2000);
   let blocked = 0;
   for (let a = 0; a < 4; a++) { await esc(); await sleep(2000); blocked = await kc(); if (blocked & KEYCATCH_UI) break; }
   console.log(`camera on  -> ESC     : keyCatchers=${blocked} ${(blocked & KEYCATCH_UI) ? '(menu opened -- contract NOT as expected)' : '(menu refused, as the engine intends)'}`);
-  if (blocked & KEYCATCH_UI) {
+  if ((blocked & KEYCATCH_UI) && preClosed) {
     if (await checkAdvanced()) console.log('   SKIP: camera/save contract - the map changed under the test');
     else fail('a menu opened while a camera was active — the save/camera contract does not hold');
   }
@@ -348,8 +385,9 @@ if (!process.env.SKIP_CONTRACT) {
 }
 
 // --- 4. ESC closes it again ----------------------------------------------
-await esc();
-await sleep(3500);
+// Retry, for the same reason the open path does: ESC delivery is not reliable under load.
+await closeMenu();
+await sleep(1500);
 const backKc = await kc();
 console.log(`after ESC again      : keyCatchers=${backKc}`);
 if (backKc & KEYCATCH_UI) {

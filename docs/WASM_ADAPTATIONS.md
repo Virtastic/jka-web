@@ -4683,3 +4683,55 @@ weighing against the "strictly original sources" rule: not overwriting a pending
 is outstanding, or completing the outgoing id when PLAY_ROFF replaces it. Both change shipped
 behaviour and could alter script semantics elsewhere, so neither should be applied without
 understanding why the same script survives its first run.
+
+## RETRACTION: the "orphaned by restart" mechanism is also wrong
+
+The entry above is withdrawn. It argued that a repeated `PLAY_ROFF` overwrites `taskID[TID_MOVE_NAV]`
+and strands the previous id, because there is only one slot per task type. `Q3_TaskIDSet` already
+handles that case, with a comment saying so:
+
+```c
+static void Q3_TaskIDSet( gentity_t *ent, taskID_t taskType, int taskID )
+{
+    if ( taskType < TID_CHAN_VOICE || taskType >= NUM_TIDS ) return;
+
+    //Might be stomping an old task, so complete and clear previous task if there was one
+    Q3_TaskIDComplete( ent, taskType );
+
+    ent->taskID[taskType] = taskID;
+}
+```
+
+The outgoing task is completed before the slot is reused. The fix candidates proposed in that entry
+-- "do not overwrite a pending id" and "complete the outgoing id" -- were for a bug that is not
+there; the second is already the shipped behaviour.
+
+One genuine gap survives from that reading, and it is narrower: `Q3_TaskIDComplete` only completes
+when `Q3_TaskIDPending()` is true, which requires **both** `ent->sequencer` and `ent->taskManager`
+to be non-NULL. A stomp occurring while either is missing would silently drop the old task. That is
+a condition to measure, not a conclusion.
+
+### Standing back: what is measured, and what is not
+
+Five mechanism claims have now been published and retracted in this investigation -- stale task
+numbering, a camera/player deadlock, a stale ROFF timestamp, playback never armed, and orphaning by
+restart. Each was plausible from the evidence to hand and each was refuted by the next measurement.
+That rate is itself the most important finding in this section, and the honest response is to stop
+proposing mechanisms until one is measured end to end.
+
+**Established by measurement, and not contradicted since:**
+
+* `devmap` of the current level intermittently (~1 run in 3) leaves the in-game menu unopenable.
+* ESC reaches `UI_SetActiveMenu` with `CA_ACTIVE`, no key-catcher, and no in-game cinematic flag.
+* It returns at its first line because `ge->GameAllowedToSaveHere()` -- in JK2 simply
+  `return !in_camera;` -- is false.
+* `in_camera` is set because the reload's cutscene ran `ENABLE > MOVE > PAN > ZOOM` and stopped
+  before `FOLLOW`/`DISABLE`.
+* It stopped at `wait( "KYLE_WALK" )`: 3,349 incomplete evaluations of that one group wait.
+* The group holds exactly one task, `done=0 of=1`, MOVE_NAV id 137 on entity 644.
+* Entity 644 is `cinematic4_ravensclaw`; the task is a ROFF playback.
+* That entity's playback is healthy: armed, 3,157 ticks, 77 completions in the same failing run.
+* `Q3_TaskIDSet` completes the outgoing task before reusing the slot.
+
+**Not established:** why id 137 specifically never completes, and why the first load of the same map
+with the same script always does.

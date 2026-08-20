@@ -1,0 +1,675 @@
+<!doctype html><html lang="en"><head><!-- SPDX-License-Identifier: GPL-2.0-only | part of jka-web -->
+<meta charset="utf-8">
+<title>Jedi Knight: Jedi Academy</title><script>/* Lock the tab title: the engine calls SDL_SetWindowTitle (document.title=...) on boot; shadow the property so those writes are ignored and the tab always reads Jedi Knight: Jedi Academy. */(function(){var LOCK="Jedi Knight: Jedi Academy";try{Object.defineProperty(document,"title",{configurable:true,get:function(){return LOCK},set:function(){}});}catch(e){}try{var t=document.getElementsByTagName("title")[0];if(t)t.textContent=LOCK;}catch(e){}})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Play Jedi Knight: Jedi Academy in your browser - the GPL Jedi Academy engine compiled to WebAssembly. Bring your own copy Gold data; nothing is uploaded. Desktop Chrome/Chromium.">
+<link rel="canonical" href="https://jka.virtastic.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="jka-web">
+<meta property="og:title" content="Jedi Knight: Jedi Academy in your browser">
+<meta property="og:description" content="The GPL Jedi Academy engine compiled to WebAssembly. Play at jka.virtastic.app - bring your own game data, nothing uploaded.">
+<meta property="og:url" content="https://jka.virtastic.app/">
+<meta property="og:image" content="https://jka.virtastic.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Jedi Knight: Jedi Academy in your browser">
+<meta name="twitter:description" content="The GPL Jedi Academy engine compiled to WebAssembly. Play at jka.virtastic.app.">
+<meta name="twitter:image" content="https://jka.virtastic.app/og.png">
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<style>
+ :root{
+   /* Arulco at dusk: gun-metal + jungle khaki + a low blood-red ember */
+   --black:#0a0a09; --panel:#14100c; --panel-2:#1c1712; --line:#3a2f22;
+   --ink:#ece2c8; --muted:#a2977c; --faint:#786c58;
+   --khaki:#8a7a4e; --khaki-hi:#c7b070; --gold:#c9a54a; --gold-hi:#eccf7e;
+   --blood:#8b1a1a; --blood-hi:#c0392b; --ember:#c65a2e; --err:#e0836a; --ok:#a9c48a;
+ }
+ *{box-sizing:border-box}
+ html,body{margin:0; min-height:100%}
+ body{
+   background:var(--black); color:var(--ink);
+   font:16px/1.6 "Trebuchet MS","Gill Sans",-apple-system,"Segoe UI",Roboto,sans-serif;
+   -webkit-font-smoothing:antialiased; padding:clamp(66px,8vh,90px) 22px 46px;
+   display:flex; justify-content:center;
+ }
+ /* Fixed top bar: Virtastic home (left) + social links (right). Transparent bar; only the links
+    catch clicks so it never blocks content that scrolls under it. */
+ .topbar{position:fixed; top:0; left:0; right:0; z-index:30; pointer-events:none;
+   display:flex; align-items:center; justify-content:space-between; padding:13px 22px}
+ .topbar > *{pointer-events:auto}
+ .topbar a{display:inline-flex; align-items:center; text-decoration:none; color:var(--khaki-hi);
+   transition:color .16s ease}
+ .topbar a:hover{color:var(--gold-hi)}
+ .topbar a:focus-visible{outline:2px solid var(--gold); outline-offset:3px; border-radius:4px}
+ .topbar .home{gap:9px; font:700 12px/1 "Trebuchet MS","Gill Sans",-apple-system,sans-serif;
+   letter-spacing:.17em; text-transform:uppercase}
+ .topbar .home svg{width:20px; height:20px; fill:currentColor}
+ .topbar .socials{display:flex; align-items:center; gap:16px}
+ .topbar .socials svg{width:18px; height:18px; fill:currentColor; display:block}
+ @media (max-width:520px){ .topbar{padding:11px 15px} .topbar .home .label{display:none} .topbar .socials{gap:13px} }
+ /* Low blood-red glow on the horizon; Deidranna's Arulco burning. */
+ body::before{
+   content:''; position:fixed; inset:0; z-index:-2; pointer-events:none;
+   background:
+     radial-gradient(150% 74% at 50% 134%, rgba(139,26,26,.34), rgba(198,90,46,.06) 34%, transparent 60%),
+     radial-gradient(90% 60% at 50% 136%, rgba(201,165,74,.12), transparent 56%);
+   animation:ember 9s ease-in-out infinite;
+ }
+ /* Camo-grain to kill the flat-digital look. */
+ body::after{
+   content:''; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+ }
+ @keyframes ember{0%,100%{opacity:.82}50%{opacity:1}}
+
+ .wrap{width:100%; max-width:960px; text-align:center}
+
+ /* --- Masthead --- */
+ /* The project name above the title, same treatment as openmw-web's brand line. */
+ .eyebrow{font:600 17px/1 "Optima","Gill Sans",-apple-system,"Segoe UI",sans-serif;
+   letter-spacing:.28em; text-transform:uppercase; padding-left:.28em;
+   color:var(--gold); margin:0 0 26px}
+ h1{margin:0; font-family:"Hoefler Text","Baskerville","Palatino Linotype",Palatino,Georgia,serif;
+   font-weight:600; font-size:clamp(40px,6.6vw,66px); line-height:1.02; letter-spacing:.005em;
+   color:var(--ink); text-shadow:0 1px 0 rgba(0,0,0,.5), 0 0 34px rgba(201,165,74,.10)}
+ h1 .two{color:var(--blood-hi); text-shadow:0 0 22px rgba(192,57,43,.4)}
+ .deck{margin:18px auto 0; max-width:58ch; color:var(--muted); font-size:16px}
+
+ /* Engraved divider with a dog-tag diamond */
+ .rule{display:flex; align-items:center; gap:16px; max-width:560px; margin:28px auto 40px}
+ .rule::before,.rule::after{content:''; height:1px; flex:1;
+   background:linear-gradient(90deg,transparent,var(--khaki) 60%,transparent)}
+ .rule::after{background:linear-gradient(90deg,transparent,var(--khaki) 40%,transparent)}
+ .diamond{width:7px; height:7px; transform:rotate(45deg); border:1px solid var(--gold); flex:none}
+
+ /* --- Choice cards, styled as stamped ammo-crate plaques --- */
+ .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,440px)); justify-content:center; gap:22px}
+ /* .card sets display:flex, which would override the plain [hidden] attribute, so force it here. */
+ .card[hidden]{display:none}
+ /* Cloud Locker sign-in modal + SSO buttons - faithful to CS-Web's multiplayer sign-in. */
+ .modal.mp-modal{max-width:440px; text-align:center}
+ .mp-glyph{width:44px; height:44px; margin:2px auto 14px; color:var(--khaki-hi)}
+ .mp-glyph svg{width:100%; height:100%; display:block}
+ .mp-providers{display:flex; flex-direction:column; gap:9px; margin-top:22px}
+ .mp-prov{display:flex; align-items:center; justify-content:center; gap:11px; width:100%;
+   box-sizing:border-box; padding:12px 16px; border-radius:5px; cursor:pointer;
+   font:600 14px/1 "Optima","Gill Sans",-apple-system,"Segoe UI",sans-serif; letter-spacing:.01em;
+   background:#f6f4ee; color:#20242b; border:1px solid #d9d3c4;
+   transition:background .14s ease, transform .06s ease}
+ .mp-prov:hover{background:#fff} .mp-prov:active{transform:translateY(1px)}
+ .mp-prov:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+ .mp-prov svg{width:19px; height:19px; flex:none}
+ .mp-prov.soon{background:rgba(255,255,255,.04); color:var(--faint); border-color:var(--line);
+   cursor:default; position:relative}
+ .mp-prov.soon:hover{background:rgba(255,255,255,.04); transform:none}
+ .mp-prov.soon svg{opacity:.4}
+ .mp-prov .soon-tag{position:absolute; right:14px; font:600 9px/1 "Optima",sans-serif;
+   letter-spacing:.14em; text-transform:uppercase; color:var(--faint); border:1px solid var(--line);
+   border-radius:3px; padding:3px 6px}
+ .cloud-who{font-size:13px; color:var(--muted); margin:2px 0} .cloud-who b{color:var(--gold-hi)}
+ .m-hr{height:1px; background:linear-gradient(90deg,transparent,rgba(201,165,74,.28),transparent); margin:20px 0 0}
+ .cloud-actions{display:flex; flex-direction:column; align-items:center; gap:10px; margin:16px 0 0}
+ /* Verification summary: what we found in the picked folder, confirmed before anything uploads. */
+ .cloud-sum{margin:14px 0 0; border:1px solid rgba(255,255,255,.09); border-radius:5px;
+   background:rgba(255,255,255,.03); padding:12px 14px; text-align:left}
+ .cloud-sum dl{display:grid; grid-template-columns:auto 1fr; gap:5px 14px; margin:0;
+   font-size:13px; line-height:1.5}
+ .cloud-sum dt{color:var(--faint); white-space:nowrap}
+ .cloud-sum dd{margin:0; color:var(--ink)}
+ .cloud-sum .bad{color:var(--err)} .cloud-sum .good{color:var(--ok)}
+ .cloud-bar{height:6px; border-radius:3px; background:var(--panel-2); overflow:hidden; margin:10px 0}
+ .cloud-bar>i{display:block; height:100%; width:0; background:var(--gold); transition:width .2s}
+ .cloud-link{background:none; border:none; color:var(--faint); font-size:12px; cursor:pointer;
+   text-decoration:underline; padding:2px}
+ .cloud-link:hover{color:var(--muted)}
+ .card{
+   position:relative; padding:32px 30px 28px;
+   background:linear-gradient(160deg,var(--panel-2),var(--panel));
+   border:1px solid rgba(138,122,78,.4); border-radius:6px;
+   display:flex; flex-direction:column; align-items:center; gap:13px;
+   transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+ }
+ /* Corner brackets: kindle from khaki to gold on hover/focus. */
+ .card::after{
+   content:''; position:absolute; inset:12px; pointer-events:none; opacity:.7;
+   --c:var(--khaki); transition:opacity .18s ease;
+   background:
+     linear-gradient(var(--c),var(--c)) left top/18px 1.5px no-repeat,
+     linear-gradient(var(--c),var(--c)) left top/1.5px 18px no-repeat,
+     linear-gradient(var(--c),var(--c)) right top/18px 1.5px no-repeat,
+     linear-gradient(var(--c),var(--c)) right top/1.5px 18px no-repeat,
+     linear-gradient(var(--c),var(--c)) left bottom/18px 1.5px no-repeat,
+     linear-gradient(var(--c),var(--c)) left bottom/1.5px 18px no-repeat,
+     linear-gradient(var(--c),var(--c)) right bottom/18px 1.5px no-repeat,
+     linear-gradient(var(--c),var(--c)) right bottom/1.5px 18px no-repeat;
+ }
+ .card.actionable{cursor:pointer}
+ .card.actionable:hover{transform:translateY(-3px); border-color:rgba(201,165,74,.55);
+   box-shadow:0 18px 40px rgba(0,0,0,.5)}
+ .card.actionable:hover::after{--c:var(--gold-hi); opacity:1}
+ .card.disabled{opacity:.5}
+ .card:focus-visible{outline:2px solid var(--gold); outline-offset:3px}
+
+ .glyph{color:var(--khaki-hi); width:48px; height:48px; transition:color .18s ease}
+ .card.actionable:hover .glyph{color:var(--gold-hi)}
+ .glyph svg{width:100%; height:100%; display:block}
+ .kicker{font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; font-weight:700; color:var(--faint)}
+ .card h2{margin:0; font-family:"Hoefler Text","Baskerville","Palatino Linotype",Palatino,Georgia,serif;
+   font-weight:700; font-size:22px; letter-spacing:.01em; color:var(--ink)}
+ .card p{margin:0 auto; color:var(--muted); font-size:14px; line-height:1.55; max-width:36ch}
+ .card p.lead{flex:1}
+ .card .micro{font-size:12px; color:var(--faint); margin-top:-2px} .card .micro b{color:var(--muted)}
+ .card b{color:var(--ink); font-weight:600}
+
+ /* Per-card "?" help icon (top-right, inside the bracket which is inset 12px with 18px arms). */
+ .help-btn{position:absolute; top:18px; right:18px; z-index:3; width:24px; height:24px;
+   display:flex; align-items:center; justify-content:center; border-radius:50%;
+   border:1px solid var(--khaki); background:rgba(8,7,4,.5); color:var(--khaki-hi);
+   font:700 13px/1 Georgia,"Times New Roman",serif; cursor:pointer;
+   transition:color .16s ease, border-color .16s ease, background .16s ease}
+ .help-btn:hover{color:var(--gold-hi); border-color:var(--gold-hi); background:rgba(201,165,74,.14)}
+ .help-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+
+ /* Help modal (deep docs). */
+ .modal-bd{position:fixed; inset:0; z-index:60; display:none; padding:24px;
+   align-items:flex-start; justify-content:center; overflow-y:auto;
+   background:rgba(6,5,3,.75); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px)}
+ .modal-bd.show{display:flex}
+ .modal{position:relative; max-width:580px; width:100%; margin:auto;
+   background:linear-gradient(160deg,var(--panel-2),var(--panel));
+   border:1px solid rgba(138,122,78,.5); border-radius:8px; padding:36px 38px 32px;
+   box-shadow:0 30px 90px rgba(0,0,0,.64); animation:pop .18s ease}
+ @keyframes pop{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+ .modal .m-kicker{font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; font-weight:700; color:var(--faint)}
+ .modal h3{margin:5px 0 0; font-family:"Hoefler Text","Baskerville",Georgia,serif;
+   font-weight:700; font-size:24px; letter-spacing:.01em; color:var(--ink)}
+ .modal h4{margin:22px 0 7px; font:700 11px/1 "Trebuchet MS","Gill Sans",-apple-system,sans-serif;
+   letter-spacing:.17em; text-transform:uppercase; color:var(--gold)}
+ .modal p{margin:0 0 10px; color:var(--muted); font-size:14px; line-height:1.64}
+ .modal b{color:var(--ink); font-weight:600}
+ .modal a{color:var(--gold)} .modal a:hover{color:var(--gold-hi)}
+ .modal code{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; color:var(--ink);
+   background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:3px; padding:1px 6px}
+ .modal ul{margin:0 0 10px; padding-left:19px; color:var(--muted); font-size:14px; line-height:1.6}
+ .modal li{margin:4px 0} .modal li b{color:var(--ink)}
+ .modal .m-close{position:absolute; top:12px; right:15px; width:30px; height:30px; border:none;
+   background:none; color:var(--faint); font:300 26px/1 -apple-system,sans-serif; cursor:pointer; transition:color .15s ease}
+ .modal .m-close:hover{color:var(--gold-hi)}
+
+ .btn{display:inline-flex; align-items:center; gap:8px;
+   font:700 12.5px/1 "Trebuchet MS","Gill Sans",-apple-system,"Segoe UI",sans-serif;
+   letter-spacing:.12em; text-transform:uppercase; padding:12px 20px; border-radius:4px;
+   cursor:pointer; transition:background .16s ease, color .16s ease, border-color .16s ease; border:1px solid}
+ .btn .arw{font-size:14px; transform:translateY(-.5px)}
+ .btn-ghost{background:transparent; color:var(--gold); border-color:var(--khaki)}
+ .btn-ghost:hover{border-color:var(--gold); color:var(--gold-hi); background:rgba(201,165,74,.1)}
+ .btn:focus-visible{outline:2px solid var(--gold); outline-offset:3px}
+
+ .go{align-self:center; margin-top:8px; display:inline-flex; align-items:center; gap:8px;
+   font:700 12.5px/1 "Trebuchet MS","Gill Sans",-apple-system,"Segoe UI",sans-serif;
+   letter-spacing:.12em; text-transform:uppercase; color:var(--gold); transition:color .16s ease, gap .16s ease}
+ .go .arw{font-size:14px; transform:translateY(-.5px)}
+ .card.actionable:hover .go{color:var(--gold-hi); gap:12px}
+ .card.disabled .go{color:var(--gold)}
+
+ .note{margin-top:4px; font-size:12.5px; min-height:18px; color:var(--muted)}
+ .note.err{color:var(--err)} .note.ok{color:var(--ok)} .note.warn{color:var(--ember)} .note.muted{color:var(--muted)}
+
+ /* --- Return-visit plaque --- */
+ .continue{display:none; align-items:center; justify-content:space-between; gap:16px;
+   margin:0 0 24px; padding:15px 20px; background:linear-gradient(160deg,var(--panel-2),var(--panel));
+   border:1px solid rgba(201,165,74,.45); border-radius:6px; text-align:left}
+ .continue.show{display:flex}
+ .continue .txt{font-size:14px; color:var(--muted)}
+ .continue .txt b{color:var(--gold); font-weight:600}
+
+ /* --- Footer --- */
+ footer{margin:42px auto 0; padding-top:22px; border-top:1px solid rgba(138,122,78,.24);
+   color:var(--faint); font-size:12.5px; line-height:1.7; max-width:70ch}
+ footer a{color:var(--khaki-hi); text-decoration:none; border-bottom:1px solid rgba(138,122,78,.5)}
+ footer a:hover{color:var(--gold)}
+ .adv{margin-top:12px; font-size:12px}
+
+ @keyframes rise{from{opacity:0; transform:translateY(16px)} to{opacity:1; transform:none}}
+ .reveal{opacity:0; animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+ .d1{animation-delay:.05s} .d2{animation-delay:.14s} .d3{animation-delay:.26s} .d4{animation-delay:.34s} .d5{animation-delay:.46s}
+ @media (prefers-reduced-motion:reduce){ *,body::before{animation:none!important} .reveal{opacity:1; transform:none} }
+</style></head>
+<body>
+<header class="topbar">
+  <a class="home" href="https://virtastic.app" target="_blank" rel="noopener" aria-label="Virtastic home">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    <span class="label">Virtastic</span>
+  </a>
+  <nav class="socials" aria-label="Virtastic on social media">
+    <a href="https://github.com/Virtastic" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></a>
+    <a href="https://discord.gg/PzFfDkbSue" target="_blank" rel="noopener" aria-label="Discord" title="Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></a>
+    <a href="https://www.linkedin.com/company/virtastic" target="_blank" rel="noopener" aria-label="LinkedIn" title="LinkedIn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg></a>
+    <a href="https://www.patreon.com/virtastic" target="_blank" rel="noopener" aria-label="Patreon" title="Patreon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M0 .48v23.04h4.22V.48zm15.385 0c-4.764 0-8.641 3.88-8.641 8.65 0 4.755 3.877 8.623 8.641 8.623 4.75 0 8.615-3.868 8.615-8.623C24 4.36 20.136.48 15.385.48z"/></svg></a>
+    <a href="https://www.reddit.com/r/virtastic" target="_blank" rel="noopener" aria-label="Reddit" title="Reddit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg></a>
+    <a href="https://www.youtube.com/@Virtastic-Apps" target="_blank" rel="noopener" aria-label="YouTube" title="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>
+    <a href="https://ko-fi.com/virtastic" target="_blank" rel="noopener" aria-label="Ko-fi" title="Ko-fi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.965-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.963 1.904.82 1.832 3.011.723 4.311zm6.173.478c-.928.116-1.682.028-1.682.028V7.284h1.77s1.971.551 1.971 2.638c0 1.913-.985 2.667-2.059 3.015z"/></svg></a>
+  </nav>
+</header>
+<div class="wrap">
+  <p class="eyebrow reveal d1">JKA-Web</p>
+  <h1 class="reveal d1">Jedi <span class="two">Academy</span></h1>
+  <p class="deck reveal d2" id="deck">Assemble your squad and liberate Arulco, running entirely on your
+    machine, nothing uploaded. Point the engine at your own copy of the game to play.</p>
+  <div class="rule reveal d2"><span class="diamond"></span></div>
+
+  <!-- Return-visit fast path -->
+  <div class="continue reveal" id="continue">
+    <div class="txt">Remembered install: <b id="continue-name">your GameData folder</b></div>
+    <button class="btn btn-ghost" id="continue-btn">Continue <span class="arw">▸</span></button>
+  </div>
+
+  <div class="cards">
+    <!-- CLOUD - revealed by JS only when the cloud backend (/api) is reachable. Click opens the
+         login/actions modal (filled from /api/me). Same card + modal styling as the other tiles. -->
+    <!-- Present unless the image was built with CLOUD_LOCKER=0, which adds `hidden` here. -->
+    <div class="card actionable reveal d3" id="card-cloud" role="button" tabindex="0">
+      <button class="help-btn" id="help-cloud" type="button" aria-label="About the Cloud Locker">?</button>
+      <div class="glyph" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 34a8 8 0 0 1-1-15.9A11 11 0 0 1 35 20a7 7 0 0 1 0 14"/>
+          <rect x="17" y="26" width="14" height="12" rx="2"/><path d="M20 26v-2a4 4 0 0 1 8 0v2"/>
+          <circle cx="24" cy="31" r="1.3" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="kicker">Sync anywhere</div>
+      <h2>Cloud Locker</h2>
+      <p class="lead" id="cloud-lead">Sign in to keep your game data and saves in the cloud - they follow
+         you to any device, nothing to re-pick.</p>
+      <div class="go" id="cloud-go">Sign in <span class="arw">▸</span></div>
+    </div>
+
+    <!-- HOSTED DATA - revealed by JS only when the server actually serves the retail archives -->
+    <div class="card actionable reveal d4" id="card-hosted" role="button" tabindex="0" hidden>
+      <div class="glyph" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="7" y="9" width="34" height="12" rx="2"/><rect x="7" y="27" width="34" height="12" rx="2"/>
+          <line x1="13" y1="15" x2="13" y2="15"/><line x1="13" y1="33" x2="13" y2="33"/>
+          <path d="M24 40v4M20 44h8"/>
+        </svg>
+      </div>
+      <div class="kicker">Hosted here</div>
+      <h2>Play now</h2>
+      <p class="lead">The game data is served from this site - <b>nothing to install or upload</b>. Just
+         click and play.</p>
+      <p class="micro">Best on a fast connection: the data downloads once, then caches.</p>
+      <div class="go">Play now <span class="arw">▸</span></div>
+    </div>
+
+    <!-- OWN DATA -->
+    <div class="card actionable reveal d4" id="card-local" role="button" tabindex="0">
+      <button class="help-btn" id="help-local" type="button" aria-label="How to bring your own Jedi Academy data">?</button>
+      <div class="glyph" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+          <path d="M6 15l6-5h9l4 4h13a2 2 0 0 1 2 2v20a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V15Z"/>
+          <line x1="6" y1="24" x2="42" y2="24"/>
+          <line x1="22" y1="24" x2="22" y2="34"/><line x1="26" y1="24" x2="26" y2="34"/>
+        </svg>
+      </div>
+      <div class="kicker">Your copy</div>
+      <h2>Bring your own copy</h2>
+      <p class="lead">Point to the <b>GameData</b> folder of a legal Jedi Knight: Jedi Academy install. Files
+         are read straight from your disk, no upload. The single-player campaign is what runs;
+         multiplayer and mods aren't supported.</p>
+      <p class="micro">New to this? Tap the <b>?</b> for where to find your files.</p>
+      <div class="note" id="local-note"></div>
+      <div class="go">Choose your GameData folder <span class="arw">▸</span></div>
+    </div>
+  </div>
+
+  <footer class="reveal d5">
+    Jedi Knight: Jedi Academy game data is not included or distributed here; supply your own legally-obtained
+    copy. jka-web is based on
+    <a href="https://github.com/jedis/jediacademy" target="_blank" rel="noopener">Raven's GPL Jedi Academy source</a>,
+    rebuilt in WebAssembly to run in the browser, and is released under the GPLv2.
+    Choosing your own folder needs a Chromium browser (Chrome, Edge or Brave) on desktop.
+    <br><br>
+    <a href="privacy.html">Privacy</a>
+  </footer>
+</div>
+
+<!-- Help modal -->
+<div class="modal-bd" id="modal-bd" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <button class="m-close" id="modal-close" type="button" aria-label="Close">&times;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+ 'use strict';
+ const $ = (id) => document.getElementById(id);
+
+ // --- Help modal: deep, docs-style detail for bringing your own copy, opened by the "?" icon. ---
+ const HELP_LOCAL = `
+   <div class="m-kicker">Your copy &middot; nothing is uploaded</div>
+   <h3 id="modal-title">Bring your own copy</h3>
+   <p>Own Jedi Knight: Jedi Academy? Point the browser at your installed copy and it plays in-engine, reading
+      files straight from your disk - <b>no upload, no copy to a server</b>. Here's the whole flow.</p>
+
+   <h4>1 · Find your GameData folder</h4>
+   <p>You need a legal install of <b>Jedi Knight: Jedi Academy</b>. Pick the <code>GameData</code>
+      folder, or the <code>base</code> folder inside it - the one holding the <code>.pk3</code>
+      archives (<code>assets0.pk3</code>, <code>assets1.pk3</code>, <code>assets2.pk3</code>,
+      <code>assets3.pk3</code>):</p>
+   <ul>
+     <li><b>GOG</b> - <code>C:\\GOG Games\\Star Wars Jedi Knight - Jedi Academy</code></li>
+     <li><b>Steam</b> - <code>...\\steamapps\\common\\Star Wars Jedi Knight - Jedi Academy</code>
+         (Steam → right-click the game → Manage → Browse local files)</li>
+     <li><b>Disc / other</b> - wherever you installed it.</li>
+   </ul>
+
+   <h4>2 · Let the browser open it</h4>
+   <p>Click <b>Choose your GameData folder</b>, select it, and when Chrome asks to <b>edit</b> the folder
+      choose <b>Edit files</b>. Nothing leaves your machine - this lets the engine read your game data
+      on demand and write your saves back to the folder (see below). Your pick is remembered for next
+      time.</p>
+
+   <h4>Your saves live on disk</h4>
+   <p>Saved games are written to a <code>jka-web-saves</code> folder <b>inside the folder you picked</b>
+      - real files on your drive, <b>not</b> in the browser. Clearing your browser history or cache
+      won't touch them, they're there next time you play, and you can back them up or copy them like
+      any other file. (This is why Chrome asks to <b>edit</b> the folder, not just view it.)</p>
+
+   <h4>What runs</h4>
+   <p>The <b>single-player campaign</b>, from the original Raven source released under the GPL.
+      Multiplayer is not built, and mod <code>.pk3</code>s in <code>base</code> are not loaded. If you
+      point at the free demo instead (a lone <code>assets0.pk3</code> in <code>GameData/demo</code>),
+      the launcher says so and the demo mission runs.</p>
+
+   <h4>Requirements &amp; privacy</h4>
+   <ul>
+     <li><b>Chromium browser on desktop</b> (Chrome, Edge, Brave) - this uses the File System Access
+         API, which Firefox and Safari don't support.</li>
+     <li><b>Nothing is uploaded.</b> The game reads your data and writes your saves on your own disk -
+         no copy is stored on any server.</li>
+   </ul>
+
+   <h4>If something's off</h4>
+   <ul>
+     <li><b>"Doesn't look like a Jedi Academy install"</b> - pick the folder that contains
+         <code>base</code> with the <code>.pk3</code> archives (or the <code>base</code> folder
+         itself).</li>
+     <li><b>Edit access denied</b> - reopen the picker and choose <b>Edit files</b> (needed so saves
+         can be written to the folder).</li>
+   </ul>`;
+ (function(){
+   const bd=$('modal-bd'), body=$('modal-body'), modalEl=bd.querySelector('.modal');
+   // Shared modal: any tile can open it with its own HTML (+ optional variant class on .modal, e.g.
+   // 'mp-modal' for the narrow centered sign-in). Returns the body element for wiring handlers.
+   window.__modalOpen = function(html, variant){ body.innerHTML=html; modalEl.className='modal'+(variant?' '+variant:''); bd.classList.add('show'); $('modal-close').focus(); return body; };
+   window.__modalClose = function(){ bd.classList.remove('show'); };
+   const hb=$('help-local');   // stop the event so the card's pick handler doesn't also fire
+   if(hb){ hb.addEventListener('click', e=>{ e.stopPropagation(); window.__modalOpen(HELP_LOCAL); });
+           hb.addEventListener('keydown', e=>{ e.stopPropagation(); }); }
+   $('modal-close').addEventListener('click', window.__modalClose);
+   bd.addEventListener('click', e=>{ if(e.target===bd) window.__modalClose(); });
+   document.addEventListener('keydown', e=>{ if(e.key==='Escape' && bd.classList.contains('show')) window.__modalClose(); });
+ })();
+ const hasFSA = typeof window.showDirectoryPicker === 'function';
+
+ // --- IndexedDB handle store (shared shape with index.html?src=local) ---
+ const DB='jka-launcher', STORE='handles', KEY='jkadata', METAKEY='jkameta';
+ function idbOpen(){ return new Promise((res,rej)=>{
+   const r=indexedDB.open(DB,1);
+   r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains(STORE)) r.result.createObjectStore(STORE); };
+   r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+ }); }
+ function idbGet(key){ return idbOpen().then(db=>new Promise((res,rej)=>{
+   const t=db.transaction(STORE,'readonly').objectStore(STORE).get(key);
+   t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error);
+ })); }
+ function idbSet(key,val){ return idbOpen().then(db=>new Promise((res,rej)=>{
+   const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(val,key);
+   tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error);
+ })); }
+
+ // --- Own-data helpers ---
+ const note=(msg,cls)=>{ const n=$('local-note'); n.textContent=msg||''; n.className='note '+(cls||'muted'); };
+
+ // Users often pick the install root, not "Data"; descend one level if a Data/data folder exists.
+ // Find the folder holding the .pk3 archives. Players pick the Data folder, the game folder, or a
+ // wrapper above it (GOG's Linux layout nests game/Data). We only ever step into CONVENTIONALLY
+ // named children - data, game, gamedata - never an arbitrary sweep: a granted directory handle can
+ // read everything inside it, so picking Documents by mistake must not enumerate the whole tree.
+ const DATA_DIR_NAMES = /^(data|data files|game|gamedata)$/i;
+ async function findDataDir(dir, depth = 3){
+   const subs = [];
+   for await (const [name, h] of dir.entries()){
+     if (h.kind === 'file' && /\.pk3$/i.test(name)) return dir;          // .pk3 here: this is it
+     if (h.kind === 'directory' && DATA_DIR_NAMES.test(name)) subs.push(h);
+   }
+   if (depth <= 0) return null;
+   for (const h of subs){ const hit = await findDataDir(h, depth - 1); if (hit) return hit; }
+   return null;
+ }
+ async function resolveDataDir(dir){
+   const data = await findDataDir(dir);
+   return { data: data || dir, root: dir };
+ }
+ // Validate a Jedi Academy install. Returns null if it holds no .pk3 archives, else a summary.
+ //
+ // Retail Jedi Academy keeps its archives in GameData/base as assets0/1/2/3.pk3. There is no
+ // freely-redistributable demo mission for Jedi Academy the way there is for Jedi Outcast, so
+ // this only has to recognise a retail layout.
+ async function scanJKA(dataDir, rootDir){
+   let pk3=0, hasAssets0=false;
+   for await (const [name,h] of dataDir.entries()){
+     if (h.kind==='file'){
+       const lower=name.toLowerCase();
+       if (lower.endsWith('.pk3')) pk3++;
+       if (lower==='assets0.pk3') hasAssets0=true;
+     }
+   }
+   if (pk3===0) return null;
+   return { pk3, hasAssets0 };
+ }
+
+ async function pickLocal(){
+   if (!hasFSA){ note('Your browser has no folder-picker (File System Access API). Use Chrome, Edge or Brave on desktop.','err'); return; }
+   try {
+     const picked = await window.showDirectoryPicker({ id:'jka', mode:'readwrite' });
+     note('Checking folder…');
+     const { data, root } = await resolveDataDir(picked);
+     const scan = await scanJKA(data, root);
+     if (!scan){
+       note('That doesn’t look like a Jedi Academy install. Pick the GameData folder (or the base folder inside it); it must contain the .pk3 archives (assets0.pk3, assets1.pk3, assets2.pk3, assets3.pk3).','err');
+       return;
+     }
+     // Grant read permission while we still hold the user gesture, then remember the handle.
+     if ((await picked.requestPermission({ mode:'readwrite' })) !== 'granted'){
+       note('Edit access was declined - it’s needed so your saved games can be written to the folder. Reopen and choose “Edit files”.','err'); return;
+     }
+     const meta = { archives:scan.pk3, name:picked.name||'GameData' };
+     await idbSet(KEY, picked);
+     await idbSet(METAKEY, meta);
+     let msg='Found '+scan.pk3+' game archive'+(scan.pk3===1?'':'s')+'.';
+     note(msg+' Starting…', scan.wildfire||scan.has113 ? 'warn' : 'ok');
+     location.href='index.html?src=local';
+   } catch(e){
+     if (e && e.name==='AbortError') return; // user cancelled the picker
+     note('Could not open that folder: '+(e && e.message || e),'err');
+   }
+ }
+ $('card-local').addEventListener('click', pickLocal);
+ $('card-local').addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pickLocal(); } });
+
+ if (!hasFSA){
+   const card=$('card-local');
+   card.classList.remove('actionable'); card.classList.add('disabled');
+   note('Needs a Chromium browser (Chrome/Edge/Brave) on desktop.','muted');
+ }
+
+ // --- Hosted-data card: reveal only if the server actually hosts the game-data COPY.
+ // Jedi Academy has no single packed .data blob: the engine streams the retail pk3s over HTTP Range
+ // (streamfs). Probe the two archives the retail set always contains; both must be present.
+ // Absent (the default public deploy ships no retail data) -> stay hidden. ---
+ (async function(){
+   try {
+     const [d, j] = await Promise.all([
+       fetch('base/assets0.pk3', { method:'HEAD' }),
+       fetch('base/assets1.pk3', { method:'HEAD' }),
+     ]);
+     if (!d.ok || !j.ok) return;   // no hosted data → folder-picker card stays (the default)
+   } catch(e){ return; }
+   // Hosted data is present: offer it alongside the folder-picker route.
+   const play = () => { location.href = 'index.html'; };
+   const card = $('card-hosted');
+   card.hidden = false;
+   card.addEventListener('click', play);
+   card.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); play(); } });
+   const deck  = $('deck');       if (deck)  deck.textContent =
+     'The single-player campaign, running right here in your browser - no install, no upload.';
+ })();
+
+ // --- Cloud tile: sign in (Discord/Google/Microsoft), upload data + saves to S3. Revealed only
+ // when the cloud backend (/api) is reachable; otherwise the tile stays hidden (default deploy). ---
+ // Brand glyphs for the provider buttons (inline, exact from CS-Web - no remote assets, strict CSP).
+ const PROVIDER_ICONS = {
+   google: '<svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.2 13.5 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.4 5.7C43.6 38 46.5 31.8 46.5 24.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C1 16.4 0 20.1 0 24s1 7.6 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.2-8.5 2.2-6.4 0-11.8-4-13.6-9.8l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>',
+   discord: '<svg viewBox="0 0 24 24" fill="#5865F2"><path d="M20.3 4.5A19.8 19.8 0 0 0 15.4 3l-.3.5c1.8.4 3.3 1 4.7 1.9-1.7-.8-3.5-1.3-5.4-1.5a20.4 20.4 0 0 0-4.8 0c-1.9.2-3.7.7-5.4 1.5 1.4-.9 2.9-1.5 4.7-1.9L8.6 3A19.8 19.8 0 0 0 3.7 4.5C1.2 8.2.4 11.8.8 15.4a19.9 19.9 0 0 0 6 3l.8-1.3c-.7-.3-1.4-.6-2-1l.5-.4a14.2 14.2 0 0 0 12 0l.5.4c-.6.4-1.3.7-2 1l.8 1.3a19.9 19.9 0 0 0 6-3c.5-4.2-.8-7.8-2.4-10.9zM9 13.5c-1 0-1.7-.9-1.7-1.9S8 9.7 9 9.7s1.7.9 1.7 1.9S10 13.5 9 13.5zm6 0c-1 0-1.7-.9-1.7-1.9S14 9.7 15 9.7s1.7.9 1.7 1.9S16 13.5 15 13.5z"/></svg>',
+   microsoft: '<svg viewBox="0 0 24 24"><path fill="#F25022" d="M1 1h10.5v10.5H1z"/><path fill="#7FBA00" d="M12.5 1H23v10.5H12.5z"/><path fill="#00A4EF" d="M1 12.5h10.5V23H1z"/><path fill="#FFB900" d="M12.5 12.5H23V23H12.5z"/></svg>',
+ };
+ function providerLabel(p){ return p.charAt(0).toUpperCase()+p.slice(1); }
+ let cloudProviders = {};   // {google:bool,...} - which providers the backend has configured (live)
+ // Render the "Continue with X" buttons into #cloud-providers. Live = clickable cream button;
+ // not-yet-enabled = dark "Soon" button. Same lineup + styling as CS-Web's multiplayer sign-in.
+ function renderCloudProviders(){
+   const box = $('cloud-providers'); if (!box) return;
+   box.innerHTML = '';
+   let firstLive = null;
+   ['google','discord','microsoft'].forEach(function(key){
+     const live = !!cloudProviders[key];
+     const b = document.createElement('button');
+     b.type = 'button'; b.className = 'mp-prov' + (live?'':' soon');
+     b.innerHTML = (PROVIDER_ICONS[key]||'') + '<span>Continue with '+providerLabel(key)+'</span>'
+       + (live?'':'<span class="soon-tag">Soon</span>');
+     if (live){ b.addEventListener('click', function(){ location.href='/api/auth/'+key+'/login'; }); if(!firstLive) firstLive=b; }
+     else { b.disabled = true; b.setAttribute('aria-disabled','true'); }
+     box.appendChild(b);
+   });
+   if (firstLive) firstLive.focus();
+ }
+ // The Cloud Locker glyph (data + saves), used on the tile and centered in the sign-in modal.
+ const CLOUD_GLYPH = '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 34a8 8 0 0 1-1-15.9A11 11 0 0 1 35 20a7 7 0 0 1 0 14"/><rect x="17" y="26" width="14" height="12" rx="2"/><path d="M20 26v-2a4 4 0 0 1 8 0v2"/><circle cx="24" cy="31" r="1.3" fill="currentColor" stroke="none"/></svg>';
+ const esc = (s) => String(s||'').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+ let cloudMe = null;                         // null = signed out; else {uid,name,hasData}
+ let cloudPending = null;                    // last folder check, awaiting the player's confirmation
+ async function cloudFetchMe(){
+   try { const r = await fetch('/api/me', { credentials:'same-origin' }); cloudMe = r.ok ? await r.json() : null; }
+   catch(e){ cloudMe = null; }
+   return cloudMe;
+ }
+ // Reflect auth state on the tile face (lead + go label). Clicking the tile always opens the modal.
+ // ponytail: the card is STATIC, exactly like openmw-web's cloud tile. It always reads "Sign in",
+ // never the player's name and never a per-state label. Signing in leads INTO the game, which is
+ // where the one-time data upload happens - the launcher never owns that step.
+ function cloudUpdateTile(){}
+ // Modal content per auth state (reuses the shared launcher modal + its styling).
+ function cloudModalHtml(){
+   return '<div class="mp-glyph" aria-hidden="true">' + CLOUD_GLYPH + '</div>'
+     + '<div class="m-kicker">Cloud Locker</div>'
+     + '<h3 id="modal-title">Sign in to your locker</h3>'
+     + '<div id="cloud-providers" class="mp-providers"></div>'
+     + '<p class="note" id="cloud-note"></p>';
+ }
+ // One job, like openmw-web: sign in, then go to the game. Already signed in? Straight in - the
+ // game shows the one-time upload wizard itself when the locker is empty.
+ // Everything it needs is fetched HERE, on click, rather than on every page load: the launcher does
+ // not need to know your session or which providers are configured until you actually open this.
+ async function cloudOpenModal(){
+   // ALWAYS ask which provider, exactly like openmw-web: the tile is a sign-in door, not a resume
+   // button. An existing session is not a reason to skip the question - if it is still valid the
+   // provider waves you straight through, so the cost is a redirect, and you always get to pick
+   // (or switch) accounts rather than being silently dropped into whichever one you used last.
+   window.__modalOpen(cloudModalHtml(), 'mp-modal');       // open first, fill in as answers arrive
+   try {
+     const r = await fetch('/api/health', { credentials:'same-origin' });
+     const h = r.ok ? await r.json() : null; cloudProviders = (h && h.providers) || {};
+   } catch(e){ cloudProviders = {}; }
+   renderCloudProviders();
+ }
+ (function(){
+   // The tile is part of the page, not something discovered at runtime: whether this deployment has
+   // a Cloud Locker is a deployment fact, set by CLOUD_LOCKER when the image is built. Probing for it
+   // on every load only bought a late-appearing tile and a reflow.
+   const card = $('card-cloud');
+   if (!card || card.hidden) return;                     // built with CLOUD_LOCKER=0
+   card.addEventListener('click', cloudOpenModal);
+   card.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); cloudOpenModal(); } });
+   const hc = $('help-cloud');
+   if (hc){ hc.addEventListener('click', e=>{ e.stopPropagation(); window.__modalOpen(
+       '<div class="m-kicker">Cloud Locker</div><h3 id="modal-title">Your data &amp; saves, everywhere</h3>'
+     + '<p>Sign in with Google (Discord and Microsoft are coming) and your Jedi Academy game data and savegames are '
+     + 'kept on your account. Log in on any machine and your locker is right there - no re-picking your '
+     + 'Data folder, no lost saves. You upload once; after that the browser keeps a local copy, so it '
+     + 'does not download again.</p>'
+
+     + '<h4>What you need</h4>'
+     + '<p>A copy of Jedi Knight: Jedi Academy you already own, installed on this computer. We do not supply the '
+     + 'game. You are looking for one folder called <code>GameData</code> - the one holding the '
+     + '<code>.pk3</code> archives such as <code>JAGGED ALLIANCE 2.pk3</code> and <code>SPEECH.pk3</code>, '
+     + 'plus subfolders like <code>TILECACHE</code>.</p>'
+
+     + '<h4>GOG</h4>'
+     + '<p>In <b>GOG Galaxy</b>: open Jedi Knight: Jedi Academy, click the gear next to <b>Play</b>, then '
+     + '<b>Manage installation &rsaquo; Show folder</b>. Otherwise it is where the offline installer put it:</p>'
+     + '<ul>'
+     + '<li><b>Windows</b> <code>C:\\GOG Games\\Star Wars Jedi Knight - Jedi Academy\\GameData</code></li>'
+     + '<li><b>Linux</b> <code>~/GOG Games/Star Wars Jedi Knight - Jedi Academy/game/GameData</code></li>'
+     + '<li><b>macOS</b> right-click the app in Applications &rsaquo; <b>Show Package Contents</b>, then '
+     + '<code>Contents/Resources/game/GameData</code></li>'
+     + '</ul>'
+
+     + '<h4>Steam</h4>'
+     + '<p>Right-click <b>Jedi Knight: Jedi Academy</b> in your Library &rsaquo; <b>Manage &rsaquo; Browse local '
+     + 'files</b>. The window opens on the game folder; <code>GameData</code> is inside it. Typically:</p>'
+     + '<ul>'
+     + '<li><b>Windows</b> <code>C:\\Program Files (x86)\\Steam\\steamapps\\common\\Jedi Knight: Jedi Academy\\GameData</code></li>'
+     + '<li><b>A second drive / custom library</b> use <b>Browse local files</b> rather than guessing, '
+     + 'e.g. <code>D:\\SteamLibrary\\steamapps\\common\\Jedi Knight: Jedi Academy\\GameData</code></li>'
+     + '</ul>'
+     + '<p><b>Windows blocks Program Files.</b> Browsers refuse to open folders there, which is exactly '
+     + 'where Steam installs by default - so copy the <code>GameData</code> folder to <b>Documents</b> or '
+     + '<b>Desktop</b> and pick the copy. GOG installs under <code>C:\\GOG Games\\</code> are fine as they are.</p>'
+
+     + '<h4>Not sure you have the right folder?</h4>'
+     + '<p>The right one has files ending in <code>.pk3</code> directly inside it. If you see '
+     + '<code>jasp.exe</code> but no <code>.pk3</code> files you are one level too high - open '
+     + '<code>GameData</code> inside it. You can also just pick the game folder and we will find '
+     + '<code>GameData</code> for you.</p>'
+
+     + '<h4>What we store</h4><ul><li>Your <b>base</b> folder, checked against the known GOG and Steam '
+     + 'releases as it uploads.</li><li>Your savegames, synced automatically as you play.</li></ul>'
+     + '<p>Files live in your own private storage; nothing is shared or made public. Only Chrome, Edge or '
+     + 'Brave on desktop can open a folder this way.</p>'
+     + '<p>Signing in shares your email address and display name with us and with our customer-records '
+     + 'provider. See <a href="privacy.html">Privacy</a> for exactly what is stored and who receives it.</p>'); });
+     hc.addEventListener('keydown', e=>{ e.stopPropagation(); }); }
+ })();
+
+ // --- Return-visit fast path ---
+ (async function(){
+   if (!hasFSA) return;
+   let handle; try { handle = await idbGet(KEY); } catch(e){ return; }
+   if (!handle) return;
+   let perm='prompt';
+   try { perm = await handle.queryPermission({ mode:'readwrite' }); } catch(e){ return; }
+   $('continue-name').textContent = handle.name || 'your GameData folder';
+   $('continue').classList.add('show');
+   $('continue-btn').addEventListener('click', async ()=>{
+     try {
+       if (perm!=='granted') perm = await handle.requestPermission({ mode:'readwrite' });
+       if (perm!=='granted'){ note('Edit access was declined - it’s needed to save your games to the folder. Choose “Edit files”.','err'); return; }
+       location.href='index.html?src=local';
+     } catch(e){ note('Could not reopen that folder. Pick it again.','err'); }
+   });
+ })();
+</script>
+</body></html>

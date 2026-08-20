@@ -5,6 +5,7 @@
 // actually issue draw calls, and is the framebuffer non-black? A black screenshot
 // alone cannot distinguish "stalled", "running but drawing nothing", and "drawing
 // a genuinely dark scene".
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
@@ -12,10 +13,10 @@ const GAME = process.argv[2], PORT_HTTP = process.argv[3];
 const ARGS = process.argv[4] || '';
 if (!GAME || !PORT_HTTP) { console.error('usage: verify-jk-play.mjs <game> <httpPort> ["+args"]'); process.exit(2); }
 const CDP = 9400 + (parseInt(PORT_HTTP, 10) % 100);
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  `--user-data-dir=/tmp/idt3-${GAME}-play`, 'about:blank']);
+  `--user-data-dir=${tmpProfile(`idt3-${GAME}-play`)}`, 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null;
@@ -57,7 +58,11 @@ await S('Page.addScriptToEvaluateOnNewDocument', { source: `
 `});
 await S('Page.navigate', { url: `http://localhost:${PORT_HTTP}/index.html` + (ARGS ? '?args=' + encodeURIComponent(ARGS) : '') });
 
-const logs = async () => JSON.parse((await S('Runtime.evaluate', { expression: 'JSON.stringify(window.__l||[])', returnByValue: true })).result.value || '[]');
+// The page keeps the devtools console clean by routing engine output into a private ring
+// (window.__idt3_dumpLog), so window.__l alone reads empty and every wait below would run
+// to its full timeout. Merge both sources.
+const LOGEXPR = 'JSON.stringify((window.__l||[]).concat(String(window.__idt3_dumpLog?window.__idt3_dumpLog():"").split(String.fromCharCode(10))))';
+const logs = async () => JSON.parse((await S('Runtime.evaluate', { expression: LOGEXPR, returnByValue: true })).result.value || '[]');
 const stats = async () => JSON.parse((await S('Runtime.evaluate', { returnByValue: true, expression:
   "JSON.stringify({raf: window.__raf, gl: window.__gl, lines: (window.__l||[]).length})" })).result.value);
 
@@ -82,9 +87,9 @@ await sleep(4000);
 const b = await stats();
 
 const sh = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync(`/tmp/${GAME}-play.png`, Buffer.from(sh.data, 'base64'));
+fs.writeFileSync(tmpProfile(`${GAME}-play.png`), Buffer.from(sh.data, 'base64'));
 const all = await logs();
-fs.writeFileSync(`/tmp/${GAME}-play.log`, all.join('\n'));
+fs.writeFileSync(tmpProfile(`${GAME}-play.log`), all.join('\n'));
 
 console.log(`\n===== ${GAME} =====`);
 console.log(`GL context      : ${a.gl.ctx}`);
@@ -96,5 +101,5 @@ console.log(`log lines       : ${a.lines} -> ${b.lines}`);
 const crashes = all.filter(x => /PAGEERR|RuntimeError|signature|unreachable/i.test(x));
 console.log('crashes         : ' + (crashes.length ? crashes[0].slice(0, 100) : 'none'));
 console.log('last log line   : ' + (all.slice(-1)[0] || '').slice(0, 100));
-console.log(`SHOT: /tmp/${GAME}-play.png  LOG: /tmp/${GAME}-play.log`);
+console.log(`SHOT: ${tmpProfile(`${GAME}-play.png`)}  LOG: ${tmpProfile(`${GAME}-play.log`)}`);
 ws.close(); c.kill(); process.exit(0);

@@ -9,15 +9,16 @@
 // Scope, honestly: this proves casts are CREATED, LINKED and surviving their
 // think (a broken cast trapped the module outright before the dlopen fix). It
 // does NOT prove pathfinding, combat or scripting behaviour.
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 const PORT = 9238;
 const URL_ = 'http://localhost:8790/index.html?args=' + encodeURIComponent('+set com_introplayed 1 +set cg_viewsize 100 +spdevmap escape1');
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  '--user-data-dir=/tmp/idt3-rtcw-ai', 'about:blank']);
+  '--user-data-dir=' + tmpProfile('idt3-rtcw-ai'), 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: PORT, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null;
@@ -99,9 +100,9 @@ const n2 = await countPlayers('after 8s of thinking');
 
 const all = await logs();
 const crashed = all.filter(x => /PAGEERR|out of bounds|RuntimeError/i.test(x));
-fs.writeFileSync('/tmp/rtcw-ai.log', all.join('\n'));
+fs.writeFileSync(tmpProfile('rtcw-ai.log'), all.join('\n'));
 const sh = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/rtcw-ai.png', Buffer.from(sh.data, 'base64'));
+fs.writeFileSync(tmpProfile('rtcw-ai.png'), Buffer.from(sh.data, 'base64'));
 console.log('\n===== RTCW-SP AI =====');
 console.log('crashes: ' + (crashed.length ? crashed[0].slice(0, 80) : 'none'));
 console.log('VERDICT: ' + (crashed.length ? 'FAIL — module trapped'

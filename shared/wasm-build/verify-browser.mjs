@@ -3,17 +3,17 @@
 // asserts the wasm runtime starts and the engine reaches its frame loop without a
 // fatal Com_Error. Usage: node verify-browser.mjs [url]
 //   default http://localhost:8790/  (start `python3 shared/web/server.py rtcw` first)
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 
 const URL_ = process.argv[2] || 'http://localhost:8790/';
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 9224;
 
 const chrome = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run',
-  '--user-data-dir=/tmp/idt3-verify-profile', URL_,
+  '--user-data-dir=' + tmpProfile('idt3-verify-profile'), URL_,
 ]);
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

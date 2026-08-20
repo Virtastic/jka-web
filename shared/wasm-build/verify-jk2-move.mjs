@@ -6,14 +6,15 @@
 // motion faked it). Require TWO consecutive rounds of standing-still-then-W-moves so a
 // stray animation can't trigger a false positive.
 //   node verify-jk2-move.mjs
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import zlib from 'node:zlib';
 import fs from 'node:fs';
 const HTTP = 8793, CDP = 9465, GX = 64, GY = 40;
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--use-gl=angle', '--enable-unsafe-swiftshader',
-  '--no-first-run', '--window-size=1280,800', '--user-data-dir=/tmp/idt3-jk2-move', 'about:blank']);
+  '--no-first-run', '--window-size=1280,800', '--user-data-dir=' + tmpProfile('idt3-jk2-move'), 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null; for (let i = 0; i < 25 && !pg; i++) { await sleep(1000); try { pg = (await get('/json')).find(x => x.type === 'page'); } catch {} }
@@ -23,7 +24,9 @@ const S = (m, p) => new Promise(r => { const i = ++id, h = x => { const j = JSON
 await new Promise(r => ws.on('open', r)); await S('Runtime.enable', {}); await S('Page.enable', {});
 await S('Page.addScriptToEvaluateOnNewDocument', { source: "window.__l=[];for(const k of['log','warn','error'])console[k]=((o)=>(...a)=>{try{window.__l.push(a.join(' '))}catch{}o(...a)})(console[k].bind(console));" });
 await S('Page.navigate', { url: `http://localhost:${HTTP}/index.html?args=` + encodeURIComponent('+set sv_pure 0 +devmap demo') });
-const logs = async () => JSON.parse((await S('Runtime.evaluate', { expression: 'JSON.stringify(window.__l||[])', returnByValue: true })).result.value || '[]');
+// See verify-jk-move.mjs: engine output lives in window.__idt3_dumpLog, not console.*.
+const LOGEXPR = 'JSON.stringify((window.__l||[]).concat(String(window.__idt3_dumpLog?window.__idt3_dumpLog():"").split(String.fromCharCode(10))))';
+const logs = async () => JSON.parse((await S('Runtime.evaluate', { expression: LOGEXPR, returnByValue: true })).result.value || '[]');
 for (let i = 0; i < 30; i++) { await sleep(3000); if (/loaded \d+ faces/.test((await logs()).join('\n'))) break; }
 await S('Runtime.evaluate', { expression: "(function(){var c=Module.canvas||document.getElementById('canvas');c.style.setProperty('width','100vw','important');c.style.setProperty('height','100vh','important');c.style.setProperty('object-fit','contain','important');var l=document.getElementById('load');if(l)l.remove();})()" });
 console.log('map loaded; waiting out the ~35s intro cinematic...');
@@ -50,7 +53,7 @@ for (let i = 0; i < 10 && !moved; i++) {
   if (good) { if (best === null) best = { before, after }; if (prevGood) { moved = true; best = { before, after }; } prevGood = true; } else prevGood = false;
   await sleep(1000);
 }
-if (best) { fs.writeFileSync('/tmp/jk2-move-before.png', best.before); fs.writeFileSync('/tmp/jk2-move-after.png', best.after); }
-else fs.writeFileSync('/tmp/jk2-move-before.png', await shot());
+if (best) { fs.writeFileSync(tmpProfile('jk2-move-before.png'), best.before); fs.writeFileSync(tmpProfile('jk2-move-after.png'), best.after); }
+else fs.writeFileSync(tmpProfile('jk2-move-before.png'), await shot());
 console.log('MOVED:', moved ? 'YES (two consecutive standing-still→W-moves rounds)' : 'NO/UNCLEAR');
 ws.close(); c.kill(); process.exit(0);

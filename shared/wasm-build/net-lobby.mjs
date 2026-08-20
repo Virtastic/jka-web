@@ -2,6 +2,7 @@
 // read the relay-assigned game code it displays; a second browser types that code and clicks
 // "Join". Then both join teams and we screenshot — proving the host/join UX + vIP exchange.
 //   node net-lobby.mjs <gamePort> <relayUrl> <hostTeamCmd> <clientTeamCmd> <spawnWaitSec>
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
@@ -12,8 +13,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const { default: WS } = await import('ws');
 
 async function launch(cdp, tag) {
-  const udir = `/tmp/idt3-lobby-${cdp}`; execFile('rm', ['-rf', udir]);
-  const chrome = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+  const udir = tmpProfile(`idt3-lobby-${cdp}`); execFile('rm', ['-rf', udir]);
+  const chrome = execFile(CHROME, [
     `--remote-debugging-port=${cdp}`, '--headless=new', '--mute-audio', '--use-gl=angle', '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required', '--no-first-run', '--window-size=1024,768',
     `--user-data-dir=${udir}`, 'about:blank']);
@@ -54,7 +55,7 @@ await sleep(2000); await cli.cmd(CLI_TEAM);
 
 console.log(`waiting ${SPAWN}s for spawn…`);
 await sleep(SPAWN*1000);
-await host.shot('/tmp/lobby-host.png'); await cli.shot('/tmp/lobby-client.png');
+await host.shot(tmpProfile('lobby-host.png')); await cli.shot(tmpProfile('lobby-client.png'));
 const key = a => a.filter(x=>/CL_InitCGame|entered the game|server models|challenge/i.test(x)).slice(-4).join(' | ');
 console.log('HOST:', key(host.logs)); console.log('CLIENT:', key(cli.logs));
 host.ws.close(); host.chrome.kill(); cli.ws.close(); cli.chrome.kill(); process.exit(0);

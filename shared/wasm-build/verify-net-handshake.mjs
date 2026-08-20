@@ -4,6 +4,7 @@
 // getchallenge reaches UDP (send), the server's challengeResponse reaches the client
 // (receive via the SE_PACKET pump), and the client advances state and sends `connect`.
 //   node shared/wasm-build/verify-net-handshake.mjs   (needs server.py wolfet on :8792)
+import { CHROME, tmpProfile } from './chrome.mjs';
 import dgram from 'node:dgram';
 import { spawn, execFile } from 'node:child_process';
 import http from 'node:http';
@@ -22,7 +23,7 @@ srv.on('message',(m,r)=>{
 await new Promise(res=>srv.bind(28999,'127.0.0.1',res));
 const relay=spawn('node',['shared/web/net-relay.mjs','27960'],{stdio:'ignore'}); await sleep(700);
 const CDP=9613;
-const c=execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',[`--remote-debugging-port=${CDP}`,'--headless=new','--use-gl=angle','--enable-unsafe-swiftshader','--no-first-run','--window-size=1024,640','--user-data-dir=/tmp/idt3-net-recv','about:blank']);
+const c=execFile(CHROME,[`--remote-debugging-port=${CDP}`,'--headless=new','--use-gl=angle','--enable-unsafe-swiftshader','--no-first-run','--window-size=1024,640','--user-data-dir=' + tmpProfile('idt3-net-recv'),'about:blank']);
 const get=p=>new Promise((res,rej)=>http.get({port:CDP,path:p},r=>{let d='';r.on('data',x=>d+=x);r.on('end',()=>res(JSON.parse(d)))}).on('error',rej));
 let pg=null;for(let i=0;i<25&&!pg;i++){await sleep(1000);try{pg=(await get('/json')).find(x=>x.type==='page')}catch{}}
 const ws=new WS(pg.webSocketDebuggerUrl);let id=0;

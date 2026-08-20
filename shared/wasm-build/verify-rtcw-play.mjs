@@ -1,13 +1,14 @@
 // RTCW-SP playability test: loads the demo pk3, spdevmaps escape1, screenshots.
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 const PORT = 9235;
 const URL_ = 'http://localhost:8790/index.html?args=' + encodeURIComponent('+set com_introplayed 1 +set cg_viewsize 100 +spdevmap escape1');
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  '--user-data-dir=/tmp/idt3-rtcw-play', 'about:blank']);
+  '--user-data-dir=' + tmpProfile('idt3-rtcw-play'), 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: PORT, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null;
@@ -44,7 +45,7 @@ const dim = await S('Runtime.evaluate', { returnByValue: true, expression: `(fun
 console.log('CANVAS:', dim.result && dim.result.value);
 await sleep(4000);
 const shot = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/rtcw-play.png', Buffer.from(shot.data, 'base64'));
+fs.writeFileSync(tmpProfile('rtcw-play.png'), Buffer.from(shot.data, 'base64'));
 // Dismiss the mission briefing (Escape/Enter/Space) to drop into the 3D level.
 const key = async (k, code, which) => {
   for (const t of ['keydown','keyup'])
@@ -137,7 +138,7 @@ await sleep(2500);
 await cdpClick(ax, ay);      // second click in case the first only armed the hover
 await sleep(9000);
 const shot2 = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/rtcw-ingame.png', Buffer.from(shot2.data, 'base64'));
+fs.writeFileSync(tmpProfile('rtcw-ingame.png'), Buffer.from(shot2.data, 'base64'));
 console.log('INGAME SHOT: /tmp/rtcw-ingame.png');
 // Audio: is the context running, and is the engine actually mixing non-silence?
 const snd = await S('Runtime.evaluate', { returnByValue: true, expression: `(function(){
@@ -187,7 +188,7 @@ await hold('w', 'KeyW', 87, 2500);
 const posAfter = await viewpos('after');
 console.log('MOVED:', (posBefore !== posAfter && !/none/.test(posAfter)) ? 'YES' : 'NO/UNKNOWN');
 { const m = await S('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync('/tmp/rtcw-moved.png', Buffer.from(m.data, 'base64')); }
+  fs.writeFileSync(tmpProfile('rtcw-moved.png'), Buffer.from(m.data, 'base64')); }
 
 // WEAPON FIRE: escape1 starts you unarmed (HUD ammo reads 0), so cheat a weapon
 // in first (spdevmap enables cheats), then hold K_MOUSE1 (+attack) and prove the
@@ -230,17 +231,17 @@ await consoleCmd('/weapon 3');   // MP40
 await sleep(1500);
 const ammoBefore = await ammoShot();
 { const b = await S('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync('/tmp/rtcw-armed.png', Buffer.from(b.data, 'base64')); }
+  fs.writeFileSync(tmpProfile('rtcw-armed.png'), Buffer.from(b.data, 'base64')); }
 await holdMouse1(900);
 const ammoAfter = await ammoShot();
-fs.writeFileSync('/tmp/rtcw-ammo-before.png', Buffer.from(ammoBefore, 'base64'));
-fs.writeFileSync('/tmp/rtcw-ammo-after.png', Buffer.from(ammoAfter, 'base64'));
+fs.writeFileSync(tmpProfile('rtcw-ammo-before.png'), Buffer.from(ammoBefore, 'base64'));
+fs.writeFileSync(tmpProfile('rtcw-ammo-after.png'), Buffer.from(ammoAfter, 'base64'));
 console.log('FIRED:', ammoBefore !== ammoAfter ? 'YES (ammo HUD changed)' : 'NO/UNKNOWN');
 { const f = await S('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync('/tmp/rtcw-fired.png', Buffer.from(f.data, 'base64')); }
+  fs.writeFileSync(tmpProfile('rtcw-fired.png'), Buffer.from(f.data, 'base64')); }
 
 const all = JSON.parse((await (async()=>{const r=await S('Runtime.evaluate',{expression:'JSON.stringify(window.__l||[])',returnByValue:true});return r.result.value;})()) || '[]');
-fs.writeFileSync('/tmp/rtcw-play-console.log', all.join('\n'));
+fs.writeFileSync(tmpProfile('rtcw-play-console.log'), all.join('\n'));
 console.log('KEY:', all.filter(x => /pk3 files|escape1|R_LoadWorldMap|CL_InitCGame|Sys_LoadDll|Error|Couldn't|entered|wasm32/i.test(x)).slice(-12).join('\n'));
 console.log(ok ? 'RTCW PLAY: map/pk3 activity detected; screenshot /tmp/rtcw-play.png' : 'RTCW PLAY: no map activity; see /tmp/rtcw-play-console.log');
 c.kill(); process.exit(0);

@@ -2,18 +2,18 @@
 // Wolf:ET auto-devmap test: launches with ?args=+set sv_pure 0 +devmap oasis so the
 // map loads WITHOUT any synthetic typing (decouples the VM_Call fix test from the
 // flaky console-input path). Reports ClientConnect clientNum + whether cgame inits.
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 
 const URL_ = 'http://localhost:8792/index.html?args=' + encodeURIComponent('+set sv_pure 0 +set idt3_test_autojoin 1 +devmap oasis');
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 9228;
 
 const chrome = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  '--user-data-dir=/tmp/idt3-et-auto-profile', 'about:blank',
+  '--user-data-dir=' + tmpProfile('idt3-et-auto-profile'), 'about:blank',
 ]);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: PORT, path: p }, r => {
@@ -44,7 +44,7 @@ try {
   }
   await sleep(8000);
   const shot = await send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync('/tmp/et-auto.png', Buffer.from(shot.data, 'base64'));
+  fs.writeFileSync(tmpProfile('et-auto.png'), Buffer.from(shot.data, 'base64'));
   // Join a team (Allied) + pick a class + spawn, via the console.
   const kev = async (key, code, which) => await evalStr(`(function(){ ['keydown','keyup'].forEach(function(t){ window.dispatchEvent(new KeyboardEvent(t,{key:${JSON.stringify(key)},code:${JSON.stringify(code)},keyCode:${which},which:${which},bubbles:true})); }); return 'k'; })()`);
   const typeCmd = async (line) => {
@@ -74,12 +74,12 @@ try {
     await kev2('Escape', 'Escape', 27);   // dismiss limbo → deploy view
     const logs = JSON.parse((await evalStr('JSON.stringify(window.__logs.slice(-2))')) || '[]');
     console.log('t+' + (i+1)*5 + 's: ' + logs.join(' | ').slice(0, 110));
-    if ((i+1) % 3 === 0) { const s = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync('/tmp/et-fps-'+(i+1)+'.png', Buffer.from(s.data, 'base64')); }
+    if ((i+1) % 3 === 0) { const s = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(tmpProfile('et-fps-')+(i+1)+'.png', Buffer.from(s.data, 'base64')); }
   }
   const shot2 = await send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync('/tmp/et-spawn.png', Buffer.from(shot2.data, 'base64'));
+  fs.writeFileSync(tmpProfile('et-spawn.png'), Buffer.from(shot2.data, 'base64'));
   const all = JSON.parse((await evalStr('JSON.stringify(window.__logs||[])')) || '[]');
-  fs.writeFileSync('/tmp/et-auto-console.log', all.join('\n'));
+  fs.writeFileSync(tmpProfile('et-auto-console.log'), all.join('\n'));
   const cc = all.filter(l => /ClientConnect|InitCGame|bad index|Aborted|RuntimeError/.test(l)).slice(0, 10);
   console.log('KEY LINES:\n' + cc.join('\n'));
   ws.close();

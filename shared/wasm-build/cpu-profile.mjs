@@ -2,14 +2,15 @@
 // bucketed into: WASM (engine), GL-emulation JS (draw submission / vertex re-upload),
 // swiftshader/GL driver, and other JS. Tells us where the frame time actually goes.
 // Usage: node cpu-profile.mjs <port> "<+args>" <label> [waitSec] [sampleSec]
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 const PORT = process.argv[2], ARGS = process.argv[3] || '', LABEL = process.argv[4] || PORT;
 const WAIT = parseInt(process.argv[5] || '80', 10), SAMPLE = parseInt(process.argv[6] || '6', 10);
 const CDP = 9900 + (parseInt(PORT,10) % 100);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const udir = `/tmp/idt3-cpu-${PORT}`; execFile('rm', ['-rf', udir]);
-const chrome = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const udir = tmpProfile(`idt3-cpu-${PORT}`); execFile('rm', ['-rf', udir]);
+const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle', '--enable-unsafe-swiftshader',
   '--autoplay-policy=no-user-gesture-required', '--no-first-run', '--window-size=1280,800',
   `--user-data-dir=${udir}`, 'about:blank']);

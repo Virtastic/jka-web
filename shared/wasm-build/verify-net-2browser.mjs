@@ -3,6 +3,7 @@
 // virtual IP. Proves a full browser<->browser MP connect through net-relay.mjs: B's
 // getchallenge reaches A's server, A replies, B advances and connects — no native server.
 //   node shared/wasm-build/verify-net-2browser.mjs   (needs server.py wolfet on :8792)
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { spawn, execFile } from 'node:child_process';
 import http from 'node:http';
 import WS from 'ws';
@@ -13,7 +14,7 @@ const MAP=process.argv[3]||'oasis';
 const relay=spawn('node',['shared/web/net-relay.mjs','27960'],{stdio:'inherit'}); await sleep(700);
 
 async function launch(port, args, relayUrl){
-  const c=execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',[`--remote-debugging-port=${port}`,'--headless=new','--use-gl=angle','--enable-unsafe-swiftshader','--no-first-run','--window-size=900,600',`--user-data-dir=/tmp/idt3-2b-${port}`,'about:blank']);
+  const c=execFile(CHROME,[`--remote-debugging-port=${port}`,'--headless=new','--use-gl=angle','--enable-unsafe-swiftshader','--no-first-run','--window-size=900,600',`--user-data-dir=${tmpProfile(`idt3-2b-${port}`)}`,'about:blank']);
   const get=p=>new Promise((res,rej)=>http.get({port,path:p},r=>{let d='';r.on('data',x=>d+=x);r.on('end',()=>res(JSON.parse(d)))}).on('error',rej));
   let pg=null;for(let i=0;i<25&&!pg;i++){await sleep(1000);try{pg=(await get('/json')).find(x=>x.type==='page')}catch{}}
   const ws=new WS(pg.webSocketDebuggerUrl);let id=0;
@@ -41,8 +42,8 @@ for(let i=0;i<30;i++){
   if(/challenge|Sending challenge|connectResponse|Awaiting/i.test(bl)){ result='HANDSHAKING — challenge/connect exchanged'; }
   if(/client.*connect|Going from CS_FREE|SV_DirectConnect|ClientConnect/i.test(al)){ result='SERVER SAW CLIENT — A accepted B'; }
 }
-{ const shA=await A.S('Page.captureScreenshot',{format:'png'}); fs.writeFileSync('/tmp/net-2b-host.png',Buffer.from(shA.data,'base64')); }
-{ const shB=await B.S('Page.captureScreenshot',{format:'png'}); fs.writeFileSync('/tmp/net-2b-client.png',Buffer.from(shB.data,'base64')); }
+{ const shA=await A.S('Page.captureScreenshot',{format:'png'}); fs.writeFileSync(tmpProfile('net-2b-host.png'),Buffer.from(shA.data,'base64')); }
+{ const shB=await B.S('Page.captureScreenshot',{format:'png'}); fs.writeFileSync(tmpProfile('net-2b-client.png'),Buffer.from(shB.data,'base64')); }
 const bl=(await B.logs()).filter(x=>/challenge|connect|entered|gamestate|CL_InitCGame|Awaiting|Resolving|error/i.test(x)).slice(-6);
 const al=(await A.logs()).filter(x=>/onnect|Client \\d|ClientBegin|entered|challenge ping/i.test(x)).slice(-8);
 console.log('HOST vip:', hostVip);

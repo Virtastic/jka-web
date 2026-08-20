@@ -1,15 +1,16 @@
 // Perf + brightness baseline probe. Measures sustained FPS (RAF ticks/sec), draw
 // calls per frame, and mean frame brightness for one game+map.
 //   node perf-probe.mjs <httpPort> "<+args>" [label]
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import zlib from 'node:zlib';
 import fs from 'node:fs';
 const HTTP = process.argv[2], ARGS = process.argv[3] || '', LABEL = process.argv[4] || HTTP;
 const CDP = 9600 + (parseInt(HTTP, 10) % 100);
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle', '--enable-unsafe-swiftshader',
-  '--no-first-run', '--window-size=1280,800', `--user-data-dir=/tmp/idt3-perf-${LABEL}`, 'about:blank']);
+  '--no-first-run', '--window-size=1280,800', `--user-data-dir=${tmpProfile(`idt3-perf-${LABEL}`)}`, 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null; for (let i = 0; i < 25 && !pg; i++) { await sleep(1000); try { pg = (await get('/json')).find(x => x.type === 'page'); } catch {} }
@@ -44,7 +45,7 @@ function pngMeanLuma(buf) { let p = 8, w = 0, h = 0, idat = [];
   return sum / n;
 }
 const sh = Buffer.from((await S('Page.captureScreenshot', { format: 'png' })).data, 'base64');
-fs.writeFileSync(`/tmp/perf-${LABEL}.png`, sh);
+fs.writeFileSync(tmpProfile(`perf-${LABEL}.png`), sh);
 const cpuFps = b.cpuMed > 0 ? 1000 / b.cpuMed : 0;
 console.log(`${LABEL}: swiftFPS=${fps.toFixed(1)}  draws/frame=${drawsPerFrame.toFixed(0)}  CPU-ms/frame med=${b.cpuMed.toFixed(2)} p95=${b.cpuP95.toFixed(2)} (=> CPU-bound cap ${cpuFps.toFixed(0)}fps, n=${b.cpuN})  meanLuma=${pngMeanLuma(sh).toFixed(1)}/255`);
 ws.close(); c.kill(); process.exit(0);

@@ -3,6 +3,7 @@
 // console ring, wait out a reinforcement wave, and screenshot both — proving a real networked
 // match (connect → gamestate → team join → spawn → 3D view).
 //   node net-duel.mjs <gamePort> <relayUrl> <hostArgs> <clientArgs> <hostCmdsJSON> <clientCmdsJSON> <spawnWaitSec>
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
@@ -13,8 +14,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const { default: WS } = await import('ws');
 
 async function launch(cdp, tag) {
-  const udir = `/tmp/idt3-duel-${cdp}`; execFile('rm', ['-rf', udir]);
-  const chrome = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+  const udir = tmpProfile(`idt3-duel-${cdp}`); execFile('rm', ['-rf', udir]);
+  const chrome = execFile(CHROME, [
     `--remote-debugging-port=${cdp}`, '--headless=new', '--mute-audio', '--use-gl=angle', '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required', '--no-first-run', '--window-size=1024,768',
     `--user-data-dir=${udir}`, 'about:blank']);
@@ -56,8 +57,8 @@ for (const c of JSON.parse(CLI_CMDS)) await cli.cmd(c);
 
 console.log(`waiting ${SPAWN}s for reinforcement wave / spawn…`);
 await sleep(SPAWN*1000);
-await host.shot('/tmp/duel-host.png');
-await cli.shot('/tmp/duel-client.png');
+await host.shot(tmpProfile('duel-host.png'));
+await cli.shot(tmpProfile('duel-client.png'));
 console.log('HOST key:', (await host.key()).join(' | '));
 console.log('CLIENT key:', (await cli.key()).join(' | '));
 host.ws.close(); host.chrome.kill(); cli.ws.close(); cli.chrome.kill();

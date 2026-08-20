@@ -1,10 +1,11 @@
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 const URL_ = 'http://localhost:8790/index.html?args=' + encodeURIComponent('+set com_introplayed 1 +spdevmap escape1');
 const PORT = 9240;
-const chrome = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const chrome = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`,'--headless=new','--use-gl=angle','--enable-unsafe-swiftshader',
-  '--no-first-run','--window-size=800,600','--user-data-dir=/tmp/idt3-rtcw-gldiag','about:blank']);
+  '--no-first-run','--window-size=800,600','--user-data-dir=' + tmpProfile('idt3-rtcw-gldiag'),'about:blank']);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const get=p=>new Promise((res,rej)=>http.get({port:PORT,path:p},r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>res(JSON.parse(d)))}).on('error',rej));
 try{

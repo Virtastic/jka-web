@@ -4,17 +4,23 @@
 // two composited frames. A held-forward walk shifts most of the frame; an idle scene
 // (NPC breathing) shifts a few percent. We report the changed-pixel fraction.
 //   node verify-jk-move.mjs <game> <httpPort> "<+args>"
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import zlib from 'node:zlib';
 import fs from 'node:fs';
 const GAME = process.argv[2], HTTP = process.argv[3], ARGS = process.argv[4] || '';
-if (!GAME || !HTTP) { console.error('usage: verify-jk-move.mjs <game> <httpPort> "+args"'); process.exit(2); }
+// How many ~2.2s rounds to spend waiting for player control before giving up.
+// 30 is fine for JKA, but JK2's campaign start (kejim_post) opens on a ~70s Star Wars
+// text crawl, so the fixed budget expired mid-crawl and the probe reported
+// "never confirmed player control / MOVED: NO" on a perfectly healthy build.
+const ROUNDS = parseInt(process.argv[5] || '30', 10);
+if (!GAME || !HTTP) { console.error('usage: verify-jk-move.mjs <game> <httpPort> "+args" [rounds]'); process.exit(2); }
 const CDP = 9500 + (parseInt(HTTP, 10) % 100);
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  `--user-data-dir=/tmp/idt3-${GAME}-move`, 'about:blank']);
+  `--user-data-dir=${tmpProfile(`idt3-${GAME}-move`)}`, 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null;
@@ -25,7 +31,12 @@ const S = (m, p) => new Promise(r => { const i = ++id, h = x => { const j = JSON
 await new Promise(r => ws.on('open', r)); await S('Runtime.enable', {}); await S('Page.enable', {});
 await S('Page.addScriptToEvaluateOnNewDocument', { source: "window.__l=[];for(const k of['log','warn','error'])console[k]=((o)=>(...a)=>{try{window.__l.push(a.join(' '))}catch{}o(...a)})(console[k].bind(console));" });
 await S('Page.navigate', { url: `http://localhost:${HTTP}/index.html?args=` + encodeURIComponent(ARGS) });
-const logs = async () => JSON.parse((await S('Runtime.evaluate', { expression: 'JSON.stringify(window.__l||[])', returnByValue: true })).result.value || '[]');
+// Engine output no longer reaches console.* — the page routes Com_Printf into a private
+// ring (window.__idt3_dumpLog) to keep the devtools console clean. Reading only window.__l
+// therefore saw an empty log forever and every wait loop here ran to its full timeout.
+// Merge both sources.
+const LOGEXPR = 'JSON.stringify((window.__l||[]).concat(String(window.__idt3_dumpLog?window.__idt3_dumpLog():"").split(String.fromCharCode(10))))';
+const logs = async () => JSON.parse((await S('Runtime.evaluate', { expression: LOGEXPR, returnByValue: true })).result.value || '[]');
 for (let i = 0; i < 30; i++) { await sleep(3000); if (/loaded \d+ faces/.test((await logs()).join('\n'))) break; }
 await sleep(6000);   // let the player spawn
 await S('Runtime.evaluate', { expression: "(function(){var c=Module.canvas||document.getElementById('canvas');c.style.setProperty('width','100vw','important');c.style.setProperty('height','100vh','important');c.style.setProperty('object-fit','contain','important');var l=document.getElementById('load');if(l)l.remove();})()" });
@@ -137,25 +148,69 @@ const meanLuma = (buf) => { const g = pngLuma(buf, GX, GY); let s = 0, n = 0;
 // Each 'e' press TOGGLES the cin-skip, so re-press only every few rounds. "In control"
 // requires the frame to be STABLE *and* BRIGHT (a lit scene while standing still) — a
 // moving cinematic shot isn't stable, and the black fades between shots aren't bright.
-let ctrl = false, lastPress = -99;
-for (let i = 0; i < 30; i++) {
+// Ask the ENGINE whether the player is in control, instead of guessing it from pixels.
+// idt3_client_state() returns cls.state | (keyCatchers << 8); CA_ACTIVE is 8 in both
+// JK2 and JKA (connstate_t), and keyCatchers == 0 means neither console nor menu is
+// eating input. Falls back to the old luma/steadiness guess if the export is missing
+// (an engine built before it existed).
+const CA_ACTIVE = 7;  // connstate_t: UNINITIALIZED,DISCONNECTED,CONNECTING,CHALLENGING,CONNECTED,LOADING,PRIMED,ACTIVE,CINEMATIC
+const engineState = async () => {
+  const r = await S('Runtime.evaluate', { returnByValue: true, expression:
+    `(function(){ try { return Module.ccall('idt3_client_state','number',[],[]); } catch(e){ return -1; } })()` });
+  const v = r && r.result ? r.result.value : -1;
+  return (typeof v === 'number') ? v : -1;
+};
+let engineKnows = false;
+let ctrl = false, lastPress = -99, stable = 0;
+for (let i = 0; i < ROUNDS; i++) {
   const a = await shot(); await sleep(1000); const b = await shot();
   const settle = diffFrac(a, b), lum = meanLuma(b);
   console.log(`t wait+${i}: settle ${(settle * 100).toFixed(1)}%  luma ${lum.toFixed(1)}`);
-  if (settle < 0.04 && lum > 22) { ctrl = true; break; }
-  if (i - lastPress >= 4) { await tkey('e', 'KeyE', 69); lastPress = i; }  // (re)start skip
+  // Require the "in control" condition to hold TWICE in a row, and never accept it on the
+  // first round. JK2's campaign start opens on the Star Wars text crawl, which drifts slowly
+  // enough to read as a settled frame and is bright enough to pass the luma gate -- so this
+  // used to break out at wait+0 and then report a confident MOVED: YES measured entirely on
+  // scrolling title text. A false pass is the worst failure mode a verification probe has.
+  // Luma gate at 8, not 22. Measured on JK2 artus_mine: its opening cinematic sits at
+  // luma 1.9-4.6, while the gameplay spawn -- a dark cave, player demonstrably in control
+  // (cls.state == CA_ACTIVE, keyCatchers == 0, serverTime advancing, confirmed with a
+  // temporary CL_Frame probe) -- sits at 16-34. A gate at 22 called that gameplay a
+  // cinematic and ran the whole budget out. 8 separates the two cleanly and still keeps
+  // fade-to-black frames out.
+  const st = await engineState();
+  if (st >= 0) {
+    engineKnows = true;
+    const conn = st & 0xff, keyCatch = st >> 8;
+    // CA_ACTIVE alone is NOT enough: it is also true while an in-game ICARUS cinematic
+    // plays, and JKA's t2_rogue reaches it at wait+1 with the intro camera still flying
+    // (idle diff 42%). Pair the engine's fact with the frame being steady, and drop the
+    // brightness test entirely -- brightness was the part that mis-read JK2's unlit spawn.
+    if (conn === CA_ACTIVE && keyCatch === 0 && settle < 0.04) { if (stable++) { ctrl = true; break; } }
+    else stable = 0;
+    if (i - lastPress >= 4 && i < 8) { await tkey('e', 'KeyE', 69); lastPress = i; }
+    await sleep(1200);
+    continue;
+  }
+  if (settle < 0.04 && lum > 8 && i > 0) { if (stable++) { ctrl = true; break; } }
+  else stable = 0;
+  // Only nudge the skip EARLY. Each press toggles it, and JK2's longer opening cinematics
+  // were being held black for the whole budget by presses that kept flipping it back off;
+  // artus_mine and bespin_streets both sat at luma < 5 for 130s here while verify-jk-play,
+  // which presses nothing, reached the lit scene in ~40s. Two nudges is enough for JKA.
+  if (i - lastPress >= 4 && i < 8) { await tkey('e', 'KeyE', 69); lastPress = i; }
   await sleep(1200);
 }
 if (!ctrl) console.log('WARN: never confirmed player control');
+else console.log(`control confirmed via ${engineKnows ? 'engine (cls.state == CA_ACTIVE, no key-catcher)' : 'frame heuristic'}`);
 
 // Standing-still baseline (no key), then the same window holding W.
 const idle0 = await shot(); await sleep(2500); const idle1 = await shot();
 const idleFrac = diffFrac(idle0, idle1);
 const before = await shot();
-fs.writeFileSync(`/tmp/${GAME}-move-before.png`, before);
+fs.writeFileSync(tmpProfile(`${GAME}-move-before.png`), before);
 await hold('w', 'KeyW', 87, 2500);
 const after = await shot();
-fs.writeFileSync(`/tmp/${GAME}-move-after.png`, after);
+fs.writeFileSync(tmpProfile(`${GAME}-move-after.png`), after);
 const moveFrac = diffFrac(before, after);
 
 // A low idle already means the player is in control and standing still (a running
@@ -164,6 +219,45 @@ const moveFrac = diffFrac(before, after);
 const inControl = idleFrac < 0.10;
 console.log(`IDLE  (no key): ${(idleFrac * 100).toFixed(1)}%   periphery ${inControl ? '(in control, standing still)' : '(scene still moving)'}`);
 console.log(`W-HELD change : ${(moveFrac * 100).toFixed(1)}%   periphery`);
-console.log(`MOVED: ${inControl && moveFrac > 0.15 && moveFrac > idleFrac * 3 ? 'YES' : 'NO/UNCLEAR'}`);
-console.log(`SHOTS: /tmp/${GAME}-move-before.png  /tmp/${GAME}-move-after.png`);
+// Never claim YES/NO off the diff alone. `inControl` is derived from the idle frame being
+// quiet, which a BLACK frame also satisfies -- a cinematic fade gave idle 0.0% and W-held 31%
+// (the fade continuing) and this line printed a confident MOVED: YES with the player not yet
+// spawned. If the wait loop never established control, say so instead of guessing.
+// The pixel diff cannot answer this on a busy map. Measured on JKA t1_sour: IDLE alone already
+// changes 58.4% of the periphery (vines, water, foliage all animate), so `inControl` -- which is
+// just "idle is quiet" -- is false and W-held 57.3% is indistinguishable from it. That is a
+// limit of the metric, not a broken build; the engine had already confirmed CA_ACTIVE with no
+// key-catcher on the very same run.
+//
+// So ask the engine where the player is, the same way this probe already asks whether the player
+// is in control. `viewpos` (cg_consolecmds.cpp, registered in both engines) prints
+// "<map> (x y z) : yaw" from cg.refdef.vieworg. Holding W and comparing two of those is a direct
+// measurement of translation that no amount of ambient animation can fake.
+const posOf = async () => {
+  await S('Runtime.evaluate', { expression: `(function(){try{Module.ccall('idt3_exec_cmd',null,['string'],['viewpos']);}catch(e){}})()` });
+  await sleep(700);
+  const ring = String((await S('Runtime.evaluate', { expression: 'String(window.__idt3_dumpLog ? window.__idt3_dumpLog() : "")', returnByValue: true })).result.value || '');
+  const hits = ring.split('\n').filter(l => /\(-?\d+ -?\d+ -?\d+\) : -?\d+/.test(l));
+  if (!hits.length) return null;
+  const m = hits[hits.length - 1].match(/\((-?\d+) (-?\d+) (-?\d+)\)/);
+  return m ? [ +m[1], +m[2], +m[3] ] : null;
+};
+const p0 = await posOf();
+await hold('w', 'KeyW', 87, 2500);
+const p1 = await posOf();
+let dist = null;
+if (p0 && p1) dist = Math.hypot(p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]);
+console.log(`viewpos before: ${p0 ? p0.join(' ') : '(unavailable)'}`);
+console.log(`viewpos after : ${p1 ? p1.join(' ') : '(unavailable)'}`);
+console.log(`distance moved: ${dist === null ? '(unavailable)' : dist.toFixed(1) + ' units'}`);
+
+// Engine-reported translation decides it when available; the pixel heuristic is the fallback
+// for a build too old to answer `viewpos`. 24 units is comfortably above per-frame jitter from
+// view bob and well below the ~300 units 2.5s of running covers.
+const verdict = !ctrl ? 'UNCONFIRMED (never reached player control -- raise [rounds])'
+              : dist !== null ? (dist > 24 ? `YES (engine: moved ${dist.toFixed(1)} units)`
+                                           : `NO (engine: moved only ${dist.toFixed(1)} units)`)
+              : (inControl && moveFrac > 0.15 && moveFrac > idleFrac * 3) ? 'YES (pixels only)' : 'NO/UNCLEAR (pixels only)';
+console.log(`MOVED: ${verdict}`);
+console.log(`SHOTS: ${tmpProfile(`${GAME}-move-before.png`)}  ${tmpProfile(`${GAME}-move-after.png`)}`);
 ws.close(); c.kill(); process.exit(0);

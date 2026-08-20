@@ -1,6 +1,7 @@
 // idTech3-web MP net test: boot a game with the WebSocket relay opted in (window.__IDT3_NET_RELAY)
 // and drive a connect, capturing console + the client's assigned vIP. Proves the WS transport.
 // Usage: node net-test.mjs <port> "<+args>" <relayUrl> <label> [waitSec]
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 const PORT = process.argv[2], ARGS = process.argv[3] || '', RELAY = process.argv[4] || 'ws://localhost:27960';
@@ -8,8 +9,8 @@ const LABEL = process.argv[5] || PORT, WAIT = parseInt(process.argv[6] || '35', 
 // argv[7]: explicit CDP port so two instances (host+client) on the same game port don't collide.
 const CDP = parseInt(process.argv[7] || (9900 + (parseInt(PORT,10) % 100)), 10);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const udir = `/tmp/idt3-net-${CDP}`; execFile('rm', ['-rf', udir]);
-const chrome = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const udir = tmpProfile(`idt3-net-${CDP}`); execFile('rm', ['-rf', udir]);
+const chrome = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--mute-audio', '--use-gl=angle', '--enable-unsafe-swiftshader',
   '--autoplay-policy=no-user-gesture-required', '--no-first-run', '--window-size=1024,768',
   `--user-data-dir=${udir}`, 'about:blank']);
@@ -55,5 +56,5 @@ console.log(netlines.slice(-30).join('\n') || '(none)');
 // nudge past any intro, then screenshot for visual proof of the networked scene
 for (const t of ['mousePressed','mouseReleased']) await S('Input.dispatchMouseEvent',{type:t,x:512,y:384,button:'left',clickCount:1,buttons:1});
 await sleep(1500);
-try { const shot = await S('Page.captureScreenshot',{format:'png'}); (await import('node:fs')).writeFileSync(`/tmp/net-${CDP}.png`, Buffer.from(shot.data,'base64')); console.log('shot: /tmp/net-'+CDP+'.png'); } catch(e){ console.log('shot failed', e.message); }
+try { const shot = await S('Page.captureScreenshot',{format:'png'}); (await import('node:fs')).writeFileSync(tmpProfile(`net-${CDP}.png`), Buffer.from(shot.data,'base64')); console.log('shot: /tmp/net-'+CDP+'.png'); } catch(e){ console.log('shot failed', e.message); }
 ws.close(); chrome.kill(); process.exit(0);

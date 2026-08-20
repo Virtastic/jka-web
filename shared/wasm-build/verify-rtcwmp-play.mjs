@@ -4,16 +4,17 @@
 //
 // Cmd_Team_f takes: team <r|b> <ptype> <weap> <pistol> <grenade> <skinnum>
 // and, as in Wolf:ET, a console line WITHOUT a leading '/' is sent as CHAT.
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 const PORT = 9239;
 const MAP = process.env.MP_MAP || 'mp_beach';
 const URL_ = 'http://localhost:8791/index.html?args=' + encodeURIComponent(`+set sv_pure 0 +set cg_viewsize 100 +devmap ${MAP}`);
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  '--user-data-dir=/tmp/idt3-rtcwmp-play', 'about:blank']);
+  '--user-data-dir=' + tmpProfile('idt3-rtcwmp-play'), 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: PORT, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null;
@@ -50,7 +51,7 @@ const box = JSON.parse((await S('Runtime.evaluate', { returnByValue: true, expre
 })()` })).result.value);
 await sleep(2000);
 let s = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/rtcwmp-limbo.png', Buffer.from(s.data, 'base64'));
+fs.writeFileSync(tmpProfile('rtcwmp-limbo.png'), Buffer.from(s.data, 'base64'));
 
 const key = async (k, code, which) => {
   for (const t of ['keydown', 'keyup'])
@@ -97,13 +98,13 @@ await sleep(1500);
 await consoleCmd('/team r 1 8 0 0 0');
 await sleep(9000);
 s = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/rtcwmp-play.png', Buffer.from(s.data, 'base64'));
+fs.writeFileSync(tmpProfile('rtcwmp-play.png'), Buffer.from(s.data, 'base64'));
 
 const before = await viewpos('before');
 await hold('w', 'KeyW', 87, 2500);
 const after = await viewpos('after');
 s = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/rtcwmp-moved.png', Buffer.from(s.data, 'base64'));
+fs.writeFileSync(tmpProfile('rtcwmp-moved.png'), Buffer.from(s.data, 'base64'));
 
 // WEAPON FIRE: the MP soldier spawns with an MP40. Hold +attack (K_MOUSE1) and prove
 // the HUD clip-ammo digits change. Crop just the digits from the letterboxed content
@@ -121,9 +122,9 @@ await sleep(900);
 await S('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cx, y: cy, button: 'left', clickCount: 1, buttons: 0 });
 await sleep(700);
 const ammoAfter = await ammoShot();
-fs.writeFileSync('/tmp/rtcwmp-ammo-before.png', Buffer.from(ammoBefore, 'base64'));
-fs.writeFileSync('/tmp/rtcwmp-ammo-after.png', Buffer.from(ammoAfter, 'base64'));
-{ const f = await S('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync('/tmp/rtcwmp-fired.png', Buffer.from(f.data, 'base64')); }
+fs.writeFileSync(tmpProfile('rtcwmp-ammo-before.png'), Buffer.from(ammoBefore, 'base64'));
+fs.writeFileSync(tmpProfile('rtcwmp-ammo-after.png'), Buffer.from(ammoAfter, 'base64'));
+{ const f = await S('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(tmpProfile('rtcwmp-fired.png'), Buffer.from(f.data, 'base64')); }
 console.log('FIRED: ' + (ammoBefore !== ammoAfter ? 'YES (ammo HUD changed)' : 'NO/UNCLEAR'));
 
 const snd = await S('Runtime.evaluate', { returnByValue: true, expression: `(function(){
@@ -139,7 +140,7 @@ console.log('\n===== RTCW-MP (' + MAP + ') =====');
 console.log('before: ' + JSON.stringify(before) + '  after: ' + JSON.stringify(after));
 console.log('MOVED: ' + (moved ? 'YES' : before ? 'NO' : 'UNKNOWN — no origin readout'));
 const all = await logs();
-fs.writeFileSync('/tmp/rtcwmp-play.log', all.join('\n'));
+fs.writeFileSync(tmpProfile('rtcwmp-play.log'), all.join('\n'));
 const crashes = all.filter(x => /PAGEERR|out of bounds|RuntimeError/i.test(x));
 console.log('crashes: ' + (crashes.length ? crashes[0].slice(0, 90) : 'none'));
 console.log('KEY: ' + all.filter(x => /pk3 files|CL_InitCGame|entered|Sys_LoadDll|ERROR|Couldn/i.test(x)).slice(-5).join(' | ').slice(0, 240));

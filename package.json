@@ -1,0 +1,14 @@
+{
+  "name": "jka-web",
+  "private": true,
+  "type": "module",
+  "description": "Test-harness dependencies for the CDP probes in shared/wasm-build/. The port itself is built by shared/wasm-build/build-jka*.sh and has no node dependency; this manifest exists only so `npm install` provisions the `ws` client the harnesses import at runtime.",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "serve": "python3 shared/web/server.py jka",
+    "verify": "node shared/wasm-build/verify-jk-play.mjs jka 8794"
+  },
+  "devDependencies": {
+    "ws": "^8.18.0"
+  }
+}

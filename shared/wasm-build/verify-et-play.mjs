@@ -1,14 +1,15 @@
 // Wolf:ET playability test: auto-loads oasis, drives the limbo JOIN-A-TEAM panel
 // via the UI cursor (SE_MOUSE relative deltas) + K_MOUSE1, then screenshots.
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 const PORT = 9240;
 const URL_ = 'http://localhost:8792/index.html?args=' + encodeURIComponent('+set sv_pure 0 +set cg_viewsize 100 +devmap oasis');
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  '--user-data-dir=/tmp/idt3-et-play', 'about:blank']);
+  '--user-data-dir=' + tmpProfile('idt3-et-play'), 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: PORT, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null;
@@ -34,7 +35,7 @@ const r = JSON.parse((await S('Runtime.evaluate', { returnByValue: true, express
 })()` })).result.value);
 await sleep(2000);
 let s = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/et-limbo.png', Buffer.from(s.data, 'base64'));
+fs.writeFileSync(tmpProfile('et-limbo.png'), Buffer.from(s.data, 'base64'));
 
 // The UI cursor is driven by SE_MOUSE relative deltas; movementX/Y are read-only
 // and must be defined on the event (CDP's mouseMoved reports 0,0).
@@ -65,7 +66,7 @@ const consoleCmd = async (line) => {
   await key('`', 'Backquote', 192);
   await sleep(800);
   { const sc = await S('Page.captureScreenshot', { format: 'png' });
-    fs.writeFileSync('/tmp/et-console.png', Buffer.from(sc.data, 'base64')); }
+    fs.writeFileSync(tmpProfile('et-console.png'), Buffer.from(sc.data, 'base64')); }
   for (const ch of line) {
     const code = ch === ' ' ? 'Space' : (/[0-9]/.test(ch) ? 'Digit' + ch : 'Key' + ch.toUpperCase());
     await key(ch, code, ch.toUpperCase().charCodeAt(0));
@@ -92,7 +93,7 @@ for (let i = 0; i < 9; i++) {
   console.log('t+' + (i + 1) * 5 + 's ' + hit.slice(0, 70));
 }
 s = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/et-play.png', Buffer.from(s.data, 'base64'));
+fs.writeFileSync(tmpProfile('et-play.png'), Buffer.from(s.data, 'base64'));
 // A browser AudioContext only starts after a REAL user gesture; JS-synthesized
 // events don't qualify. Send a trusted CDP click (what a real player does), then
 // give the mixer a moment before sampling the peak.
@@ -126,10 +127,10 @@ await holdKey('w', 'KeyW', 87, 2500);   // walk forward
 const after = await viewpos('after');
 console.log('MOVED:', before !== after && !/none/.test(after) ? 'YES' : 'NO/UNKNOWN');
 s = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync('/tmp/et-moved.png', Buffer.from(s.data, 'base64'));
+fs.writeFileSync(tmpProfile('et-moved.png'), Buffer.from(s.data, 'base64'));
 
 const all = await logs();
-fs.writeFileSync('/tmp/et-play-console.log', all.join('\n'));
+fs.writeFileSync(tmpProfile('et-play-console.log'), all.join('\n'));
 console.log('KEY:', all.filter(x => /ClientBegin|entered|spawn|team|CL_InitCGame|Error/i.test(x)).slice(-6).join(' | '));
 console.log('SHOTS: /tmp/et-limbo.png /tmp/et-play.png');
 ws.close(); c.kill();

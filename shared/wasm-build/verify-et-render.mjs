@@ -3,18 +3,18 @@
 // in-page (robust vs CDP event races), waits for pk3 discovery and R_Init, then
 // screenshots to /tmp/et-render.png and dumps the console to /tmp/et-console.log.
 // Usage: node verify-et-render.mjs [url]
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 
 const URL_ = process.argv[2] || 'http://localhost:8792/index.html';
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 9226;
 
 const chrome = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  '--user-data-dir=/tmp/idt3-et-render-profile', 'about:blank',
+  '--user-data-dir=' + tmpProfile('idt3-et-render-profile'), 'about:blank',
 ]);
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -69,10 +69,10 @@ try {
   if (ok) {
     await sleep(12000);   // let the menu settle and render
     const shot = await send('Page.captureScreenshot', { format: 'png' });
-    fs.writeFileSync('/tmp/et-render.png', Buffer.from(shot.data, 'base64'));
+    fs.writeFileSync(tmpProfile('et-render.png'), Buffer.from(shot.data, 'base64'));
   }
   const all = await evalStr('JSON.stringify(window.__logs || [])');
-  fs.writeFileSync('/tmp/et-console.log', JSON.parse(all || '[]').join('\n'));
+  fs.writeFileSync(tmpProfile('et-console.log'), JSON.parse(all || '[]').join('\n'));
   if (!ok && !fatal.length) fatal.push('timeout; pk3line=' + (pk3line || 'none'));
   ws.close();
 } catch (e) { fatal.push(String(e)); }

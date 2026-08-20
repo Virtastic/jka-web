@@ -7,16 +7,17 @@
 // links, the wasm instantiates, Com_Init/FS_Startup run, and the failure that
 // follows is the engine's own "missing install" path rather than a port bug.
 // Any abort, trap, or PAGEERR *before* that wall is a real defect.
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 const GAME = process.argv[2], PORT_HTTP = process.argv[3];
 if (!GAME || !PORT_HTTP) { console.error('usage: verify-boot.mjs <game> <httpPort>'); process.exit(2); }
 const CDP = 9300 + (parseInt(PORT_HTTP, 10) % 100);
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  `--user-data-dir=/tmp/idt3-${GAME}-boot`, 'about:blank']);
+  `--user-data-dir=${tmpProfile(`idt3-${GAME}-boot`)}`, 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null;
@@ -36,9 +37,9 @@ for (let i = 0; i < 35; i++) {
   if (i % 5 === 0) console.log('t+' + i * 2 + 's: ' + l.slice(-2).join(' | ').slice(0, 140));
 }
 const all = await logs();
-fs.writeFileSync(`/tmp/${GAME}-boot.log`, all.join('\n'));
+fs.writeFileSync(tmpProfile(`${GAME}-boot.log`), all.join('\n'));
 const sh = await S('Page.captureScreenshot', { format: 'png' });
-fs.writeFileSync(`/tmp/${GAME}-boot.png`, Buffer.from(sh.data, 'base64'));
+fs.writeFileSync(tmpProfile(`${GAME}-boot.png`), Buffer.from(sh.data, 'base64'));
 const pick = re => all.filter(x => re.test(x));
 
 // The expected, CORRECT data wall: FS finds no paks and the engine bails out.

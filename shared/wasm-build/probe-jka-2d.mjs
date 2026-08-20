@@ -3,14 +3,15 @@
 // 3D-only bug (lightmap modulate / camera). If the console is ALSO black, the
 // problem is 2D/present-wide. Also traces the FIRST GL call that leaves a
 // non-zero glGetError, to pin the 0x500 flood.
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 const CDP = 9466, HTTP = 8794;
-const c = execFile('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+const c = execFile(CHROME, [
   `--remote-debugging-port=${CDP}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  '--user-data-dir=/tmp/idt3-jka-2d', 'about:blank']);
+  '--user-data-dir=' + tmpProfile('idt3-jka-2d'), 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = p => new Promise((res, rej) => http.get({ port: CDP, path: p }, r => { let d=''; r.on('data', x=>d+=x); r.on('end', ()=>res(JSON.parse(d))); }).on('error', rej));
 let pg = null;
@@ -48,12 +49,12 @@ await sleep(6000);
 // fill viewport
 await S('Runtime.evaluate', { expression: `(function(){var c=Module.canvas||document.getElementById('canvas');c.style.setProperty('width','100vw','important');c.style.setProperty('height','100vh','important');c.style.setProperty('object-fit','contain','important');var l=document.getElementById('load');if(l)l.remove();})()` });
 await sleep(1500);
-let sh = await S('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync('/tmp/jka-2d-world.png', Buffer.from(sh.data, 'base64'));
+let sh = await S('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(tmpProfile('jka-2d-world.png'), Buffer.from(sh.data, 'base64'));
 // open console: Shift+` toggles the full console in JKA
 const key = async (k, code, which, mods=0) => { for (const t of ['keyDown','keyUp']) await S('Input.dispatchKeyEvent', { type: t, key: k, code, windowsVirtualKeyCode: which, nativeVirtualKeyCode: which, modifiers: mods }); await sleep(250); };
 await key('`', 'Backquote', 192, 8 /*shift*/);
 await sleep(1500);
-sh = await S('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync('/tmp/jka-2d-console.png', Buffer.from(sh.data, 'base64'));
+sh = await S('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(tmpProfile('jka-2d-console.png'), Buffer.from(sh.data, 'base64'));
 const glerr = JSON.parse((await S('Runtime.evaluate', { returnByValue: true, expression: 'JSON.stringify(window.__glerr)' })).result.value || 'null');
 console.log('FIRST GL ERROR:', glerr || 'none');
 console.log('SHOTS: /tmp/jka-2d-world.png  /tmp/jka-2d-console.png');

@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 // Wolf:ET menu interaction probe: boots, dismisses the console (Escape), clicks,
 // and screenshots each step to /tmp/et-menu-N.png.
+import { CHROME, tmpProfile } from './chrome.mjs';
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import fs from 'node:fs';
 
 const URL_ = process.argv[2] || 'http://localhost:8792/index.html';
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const PORT = 9227;
 
 const chrome = execFile(CHROME, [
   `--remote-debugging-port=${PORT}`, '--headless=new', '--use-gl=angle',
   '--enable-unsafe-swiftshader', '--no-first-run', '--window-size=1280,800',
-  '--user-data-dir=/tmp/idt3-et-menu-profile', 'about:blank',
+  '--user-data-dir=' + tmpProfile('idt3-et-menu-profile'), 'about:blank',
 ]);
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -62,7 +62,7 @@ try {
 
   const shot = async n => {
     const s = await send('Page.captureScreenshot', { format: 'png' });
-    fs.writeFileSync(`/tmp/et-menu-${n}.png`, Buffer.from(s.data, 'base64'));
+    fs.writeFileSync(tmpProfile(`et-menu-${n}.png`), Buffer.from(s.data, 'base64'));
   };
   const key = async (keyName, code, keyCode) => {
     for (const type of ['keyDown', 'keyUp']) {
@@ -118,7 +118,7 @@ try {
   // keep pumping so the world renders a few frames
   console.log('manual pump: ' + await evalStr("(function(){ for(var k=0;k<8;k++){ try { Module._idt3_pump_frame(); } catch(e){ return 'pump threw @iter'+k+': ' + (e && e.stack || e); } } return 'pumped 8x ok'; })()"));
   await sleep(3000); await shot(5);
-  fs.writeFileSync('/tmp/et-menu-console.log', JSON.parse(await evalStr('JSON.stringify(window.__logs)') || '[]').join('\n'));
+  fs.writeFileSync(tmpProfile('et-menu-console.log'), JSON.parse(await evalStr('JSON.stringify(window.__logs)') || '[]').join('\n'));
   console.log('full log at /tmp/et-menu-console.log');
   ws.close();
 } catch (e) { fatal.push(String(e)); }

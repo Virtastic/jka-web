@@ -30,6 +30,11 @@ data/jk2-demo/
 data/jka-demo/
 *.pk3
 play/*/etmain/
+# Staged gamedirs (retail or demo paks dropped in for local testing). *.pk3 above already
+# covers the paks themselves; these keep the directories out of `git status` entirely.
+play/*/base/
+play/*/demo/
+play/*/main/
 
 # Node / tooling
 node_modules/

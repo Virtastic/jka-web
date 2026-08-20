@@ -8,7 +8,7 @@
    --ash:#0b0805; --panel:#171006; --panel-2:#211809; --line:#453313;
    --ink:#f0e2c4; --muted:#b3a17e; --faint:#877659;
    --bronze:#8a6224; --bronze-hi:#d29a3e; --gold:#ffb43c; --gold-hi:#ffd27e;
-   --ember:#a05e14;
+   --ember:#a05e14; --err:#e0836a; --ok:#a9c48a;
  }
  *{box-sizing:border-box}
  html,body{margin:0; min-height:100%}
@@ -45,16 +45,25 @@
  .eyebrow{font-size:11.5px; letter-spacing:.26em; text-transform:uppercase; font-weight:600;
    color:var(--bronze-hi); margin:0 0 18px}
  h1{margin:0; font-family:"Hoefler Text","Baskerville","Palatino Linotype",Palatino,Georgia,serif;
-   font-weight:600; font-size:clamp(38px,6.2vw,62px); line-height:1.04; letter-spacing:.005em;
-   color:var(--ink); text-shadow:0 1px 0 rgba(0,0,0,.5), 0 0 34px rgba(255,255,255,.06)}
+   font-weight:600; font-size:clamp(40px,6.6vw,66px); line-height:1.02; letter-spacing:.005em;
+   color:var(--ink); text-shadow:0 1px 0 rgba(0,0,0,.5), 0 0 34px rgba(255,180,60,.10)}
+ /* One accented word in the title, the same device ja2-web uses for its "2". It is the only
+    place each game asserts its own identity inside the shared shell, and it ties the launcher
+    masthead to the loading screen's title. */
+ h1 .accent{color:var(--gold-hi); text-shadow:0 0 22px rgba(255,180,60,.42)}
  .deck{margin:20px auto 0; max-width:58ch; color:var(--muted); font-size:16.5px}
  .rule{display:flex; align-items:center; gap:16px; max-width:560px; margin:30px auto 42px}
  .rule::before,.rule::after{content:''; height:1px; flex:1;
    background:linear-gradient(90deg,transparent,var(--bronze) 60%,transparent)}
  .rule::after{background:linear-gradient(90deg,transparent,var(--bronze) 40%,transparent)}
  .diamond{width:7px; height:7px; transform:rotate(45deg); border:1px solid var(--gold); flex:none}
- .cards{display:grid; grid-template-columns:1fr 1fr; gap:22px}
- @media (max-width:720px){ .cards{grid-template-columns:1fr} }
+ /* auto-fit rather than a fixed 1fr 1fr + breakpoint: the card count varies (the demo tile is
+    relabelled, not removed, when a full install is staged) and this centres 1, 2 or 3 of them
+    without a media query. Matches ja2-web/openmw-web. */
+ .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,440px));
+   justify-content:center; gap:22px}
+ /* .card sets display:flex, which would override the plain [hidden] attribute — force it. */
+ .card[hidden]{display:none}
  .card{position:relative; padding:34px 30px 30px;
    background:linear-gradient(160deg,var(--panel-2),var(--panel));
    border:1px solid var(--line); border-radius:7px;
@@ -90,6 +99,47 @@
    letter-spacing:.12em; text-transform:uppercase; color:var(--gold); transition:color .16s ease, gap .16s ease}
  .go .arw{font-size:14px; transform:translateY(-.5px)}
  .card.actionable:hover .go{color:var(--gold-hi); gap:12px}
+ .card.disabled{opacity:.5} .card.disabled .go{color:var(--gold)}
+ .card .micro{font-size:12px; color:var(--faint); margin-top:-2px} .card .micro b{color:var(--muted)}
+ .note{margin-top:4px; font-size:12.5px; min-height:18px; color:var(--muted)}
+ .note.err{color:var(--err)} .note.ok{color:var(--ok)} .note.warn{color:var(--ember)} .note.muted{color:var(--muted)}
+
+ /* Per-card "?" help icon (top-right, inside the corner bracket which is inset 13px/17px arms). */
+ .help-btn{position:absolute; top:18px; right:18px; z-index:3; width:24px; height:24px;
+   display:flex; align-items:center; justify-content:center; border-radius:50%;
+   border:1px solid var(--bronze); background:rgba(0,0,0,.5); color:var(--bronze-hi);
+   font:700 13px/1 Georgia,"Times New Roman",serif; cursor:pointer;
+   transition:color .16s ease, border-color .16s ease, background .16s ease}
+ .help-btn:hover{color:var(--gold-hi); border-color:var(--gold-hi); background:rgba(255,180,60,.14)}
+ .help-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+
+ /* Help modal (deep docs), opened by the "?" icons. */
+ .modal-bd{position:fixed; inset:0; z-index:60; display:none; padding:24px;
+   align-items:flex-start; justify-content:center; overflow-y:auto;
+   background:rgba(4,3,2,.75); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px)}
+ .modal-bd.show{display:flex}
+ .modal{position:relative; max-width:580px; width:100%; margin:auto; text-align:left;
+   background:linear-gradient(160deg,var(--panel-2),var(--panel));
+   border:1px solid var(--line); border-radius:8px; padding:36px 38px 32px;
+   box-shadow:0 30px 90px rgba(0,0,0,.64); animation:pop .18s ease}
+ @keyframes pop{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+ .modal .m-kicker{font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; font-weight:600; color:var(--faint)}
+ .modal h3{margin:5px 0 0; font-family:"Hoefler Text","Baskerville",Georgia,serif;
+   font-weight:600; font-size:24px; letter-spacing:.01em; color:var(--ink)}
+ .modal h4{margin:22px 0 7px; font:600 11px/1 "Optima","Gill Sans",-apple-system,sans-serif;
+   letter-spacing:.17em; text-transform:uppercase; color:var(--gold)}
+ .modal p{margin:0 0 10px; color:var(--muted); font-size:14px; line-height:1.64}
+ .modal b{color:var(--ink); font-weight:600}
+ .modal a{color:var(--gold)} .modal a:hover{color:var(--gold-hi)}
+ .modal code{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; color:var(--ink);
+   background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:3px;
+   padding:1px 6px; overflow-wrap:anywhere}
+ .modal ul{margin:0 0 10px; padding-left:19px; color:var(--muted); font-size:14px; line-height:1.6}
+ .modal li{margin:4px 0} .modal li b{color:var(--ink)}
+ .modal .m-close{position:absolute; top:12px; right:15px; width:30px; height:30px; border:none;
+   background:none; color:var(--faint); font:300 26px/1 -apple-system,sans-serif; cursor:pointer;
+   transition:color .15s ease}
+ .modal .m-close:hover{color:var(--gold-hi)}
 
  .card select,.card input[type=text]{width:100%;max-width:250px;padding:10px 12px;border-radius:4px;
    background:rgba(0,0,0,.35);border:1px solid var(--line);color:var(--ink);
@@ -119,24 +169,77 @@
  #wrap{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:1}
  canvas{outline:none;display:block;background:#000;image-rendering:auto;
    width:100%!important;height:100%!important;object-fit:contain}
- #load{position:fixed; inset:0; display:none; flex-direction:column; align-items:center;
-   justify-content:center; background:var(--ash); transition:opacity .6s; z-index:10}
- #load .l-eyebrow{font-size:11px; letter-spacing:.26em; text-transform:uppercase; font-weight:600;
-   color:var(--bronze-hi); margin:0 0 12px}
- #load h1{font-size:clamp(22px,3.4vw,34px); margin:0 0 26px; text-align:center; padding:0 20px}
- #bar{width:300px; max-width:70vw; height:4px; background:var(--panel-2); border-radius:2px; overflow:hidden;
-   border:1px solid var(--line)}
- #bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--bronze-hi),var(--gold));transition:width .2s}
- #msg{margin-top:12px;font-size:12.5px;color:var(--faint);min-height:16px;
-   font-family:"Optima","Gill Sans",-apple-system,sans-serif}
+ /* Themed loading overlay — same anatomy as ja2-web and openmw-web (rotating glyph, serif
+    title with an accent word, letterspaced status line, gradient bar with an indeterminate
+    sweep, mono detail line, credit), rendered in this game's own palette. It covers the canvas
+    from the moment a card is chosen until the engine's first frame, then fades. */
+ #load{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+   padding:24px; text-align:center; background:var(--ash); color:var(--ink);
+   transition:opacity .6s ease; z-index:10}
+ #load.hide{opacity:0; pointer-events:none}
+ #load::before{content:''; position:absolute; inset:0; pointer-events:none;
+   background:
+     radial-gradient(150% 72% at 50% 132%, rgba(230,140,40,.26), rgba(0,0,0,0) 60%),
+     radial-gradient(90% 60% at 50% 134%, rgba(255,200,110,.12), rgba(0,0,0,0) 56%);
+   animation:ldEmber 9s ease-in-out infinite}
+ @keyframes ldEmber{0%,100%{opacity:.82}50%{opacity:1}}
+ #load .ld-inner{position:relative; width:100%; max-width:460px}
+ #load .ld-glyph{width:56px; height:56px; margin:0 auto 24px; color:var(--bronze-hi);
+   animation:ldSpin 7s linear infinite}
+ #load .ld-glyph svg{width:100%; height:100%; display:block}
+ @keyframes ldSpin{to{transform:rotate(360deg)}}
+ #load .ld-title{margin:0 0 10px;
+   font-family:"Hoefler Text","Baskerville","Palatino Linotype",Palatino,Georgia,serif;
+   font-weight:600; font-size:clamp(26px,5vw,40px); letter-spacing:.01em; color:var(--ink);
+   text-shadow:0 1px 0 rgba(0,0,0,.6), 0 0 34px rgba(255,180,60,.12)}
+ #load .ld-title .accent{color:var(--gold-hi); text-shadow:0 0 22px rgba(255,180,60,.42)}
+ #load .ld-status{margin:0 0 22px; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase;
+   font-weight:600; color:var(--bronze-hi)}
+ #load .ld-bar{position:relative; height:4px; border-radius:3px; overflow:hidden;
+   background:rgba(138,98,36,.28)}
+ #load .ld-fill{height:100%; width:0; border-radius:3px;
+   background:linear-gradient(90deg,var(--bronze),var(--gold),var(--gold-hi));
+   transition:width .3s ease}
+ /* Indeterminate until something reports real byte counts — a bar parked at 0 reads as hung. */
+ #load.indet .ld-fill{width:34%; animation:ldSlide 1.25s ease-in-out infinite}
+ @keyframes ldSlide{0%{transform:translateX(-110%)} 100%{transform:translateX(330%)}}
+ #load .ld-detail{margin-top:13px; min-height:16px; font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;
+   color:var(--faint)}
+ #load .ld-credit{margin-top:26px; font-size:11px; letter-spacing:.08em; color:var(--faint)}
+ #load .ld-credit a{color:var(--bronze-hi); text-decoration:none; border-bottom:1px solid var(--line)}
+ #load .ld-credit a:hover{color:var(--gold)}
+ /* Error state: stop the spinner and recolour, so a fatal never looks like it is still working. */
+ #load.err .ld-glyph{animation:none; color:var(--err)}
+ #load.err .ld-status{color:var(--err)}
+ #load.err .ld-detail{color:var(--err)}
+ #load.err .ld-fill{background:var(--err)}
+ @media (prefers-reduced-motion:reduce){
+   #load::before,#load .ld-glyph{animation:none}
+   #load.indet .ld-fill{animation:none; width:100%}
+ }
 </style></head>
 <body>
 <div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
-<div id="load">
-  <p class="l-eyebrow">jka-web</p>
-  <h1>Jedi Knight — Jedi Academy</h1>
-  <div id="bar"><i></i></div>
-  <div id="msg">loading engine&hellip;</div>
+<div id="load" class="indet">
+  <div class="ld-inner">
+    <div class="ld-glyph" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="24" cy="24" r="16"/>
+        <path d="M24 8v9M24 31v9M8 24h9M31 24h9"/>
+        <path d="M24 15l4.4 9-4.4 9-4.4-9Z"/>
+        <circle cx="24" cy="24" r="2.2" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+    <div class="ld-title" id="ld-title">Jedi <span class="accent">Academy</span></div>
+    <div class="ld-status" id="ld-status">Entering the Academy&hellip;</div>
+    <div class="ld-bar"><div class="ld-fill" id="ld-fill"></div></div>
+    <div class="ld-detail" id="ld-detail"></div>
+    <div class="ld-credit">jka-web by
+      <a href="https://virtastic.app" target="_blank" rel="noopener">Virtastic</a>
+      &middot; GPLv2 &middot;
+      <a href="https://github.com/Virtastic/jka-web" target="_blank" rel="noopener">Source</a></div>
+  </div>
 </div>
 
 <div id="vt-launcher">
@@ -157,7 +260,7 @@
 </header>
 <div class="wrap">
   <p class="eyebrow reveal d1">jka-web</p>
-  <h1 class="reveal d1">Jedi Academy<br>in your browser</h1>
+  <h1 class="reveal d1">Jedi <span class="accent">Academy</span><br>in your browser</h1>
   <p class="deck reveal d2">Jedi Knight: Jedi Academy single-player in your browser. Start the official demo, or bring the assets from your own copy of the game.</p>
   <div class="rule reveal d2"><span class="diamond"></span></div>
 
@@ -170,10 +273,13 @@
       <div class="go">Start the demo <span class="arw">&#9656;</span></div>
     </div>
     <div class="card actionable reveal d4" id="card-own" role="button" tabindex="0">
+      <button class="help-btn" id="help-own" type="button" aria-label="How to bring your own Jedi Academy">?</button>
       <div class="glyph" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="9" y="12" width="30" height="8" rx="1.5"/><rect x="9" y="22" width="30" height="8" rx="1.5"/><rect x="9" y="32" width="24" height="7" rx="1.5"/><line x1="14" y1="12" x2="14" y2="20"/><line x1="14" y1="22" x2="14" y2="30"/></svg></div>
       <div class="kicker">Your copy</div>
       <h2>Bring your own Jedi Academy</h2>
       <p class="lead">Pick the <b>assets*.pk3</b> files from the <b>GameData/base</b> folder of a legal install. Loaded locally &mdash; nothing is uploaded.</p>
+      <p class="micro">New to this? Tap the <b>?</b> for where to find your files.</p>
+      <div class="note" id="own-note"></div>
       <div class="go">Choose .pk3 files <span class="arw">&#9656;</span></div>
       <input type="file" id="own-files" multiple accept=".pk3" hidden>
     </div>
@@ -188,18 +294,50 @@
   </footer>
 </div>
 </div>
+<!-- Shared help modal, opened by the cards' "?" icons. Lives OUTSIDE #vt-launcher on purpose:
+     nesting it would trap it in the launcher's z-index:20 stacking context, so the PREVIEW
+     plaque (z-80) would paint over its backdrop. boot() removes it with the launcher. -->
+<div class="modal-bd" id="modal-bd" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <button class="m-close" id="modal-close" type="button" aria-label="Close">&times;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
 <div class="vt-preview">Preview</div>
 
 <script>
-const bar = document.querySelector('#bar>i'), msg = document.getElementById('msg'), load = document.getElementById('load');
+var load = document.getElementById('load');
+var ldStatus = document.getElementById('ld-status');
+var ldDetail = document.getElementById('ld-detail');
+var ldFill   = document.getElementById('ld-fill');
 let booted = false;
-function setLoading(t){
-  if (!t){ return; }
-  const m = /([\d.]+)\s*\/\s*([\d.]+)/.exec(t);      // "downloading (x/y)"
-  if (m){ bar.style.width = (100*parseFloat(m[1])/parseFloat(m[2])) + '%'; }
-  msg.textContent = t;
+
+// Drive the bar as a REAL percentage whenever the caller knows its byte counts. Anything that
+// only writes a line of text leaves the bar sweeping its indeterminate animation, and on a
+// ~1.2GB retail load that is indistinguishable from a hang.
+function setProgress(done, total, label, detail){
+  if (label && ldStatus) ldStatus.textContent = label;
+  if (detail != null && ldDetail) ldDetail.textContent = detail;
+  if (!(total > 0)) return;
+  load.classList.remove('indet');
+  if (ldFill) ldFill.style.width = Math.max(2, Math.min(100, (done / total) * 100)) + '%';
 }
-function hideLoading(){ load.style.opacity = 0; setTimeout(()=>load.remove(), 700); }
+// Text-only path (Module.setStatus and the non-streaming staging fallback). Emscripten hands
+// over strings like "Downloading data... (1234/56789)", so pull the counts out when present.
+function setLoading(t){
+  if (!t) return;
+  var m = /\(?([\d.]+)\s*\/\s*([\d.]+)\)?/.exec(t);
+  if (m && parseFloat(m[2]) > 0) setProgress(parseFloat(m[1]), parseFloat(m[2]), null, t);
+  else if (ldDetail) ldDetail.textContent = t;
+}
+// A fatal must not keep spinning — that reads as "still working" and people wait forever.
+function setFatal(t){
+  load.classList.add('err');
+  load.classList.remove('indet');
+  if (ldStatus) ldStatus.textContent = 'Could not start';
+  if (ldDetail) ldDetail.textContent = t;
+}
+function hideLoading(){ load.classList.add('hide'); setTimeout(function(){ load.remove(); }, 700); }
 
 // Data is bring-your-own: paks are staged into the gamedir below and listed here.
 // Nothing is committed.
@@ -215,56 +353,183 @@ function hideLoading(){ load.style.opacity = 0; setTimeout(()=>load.remove(), 70
 //
 // Unlike JK2, no source change is needed here: this pak checksums to exactly
 // DEMO_PAK_CHECKSUM (4102795916), i.e. it IS the pak this source expects.
+//
+// Retail lives in base/ and needs no marker file of its own: FS_SetRestrictions() looks
+// for productid.txt anywhere in the search path, and stock JKA ships it INSIDE
+// assets2.pk3 — so a complete assets0..3 set drops the demo restrictions by itself.
+// An INCOMPLETE set (say assets0+assets1 only) carries no productid.txt, falls back to
+// demo mode, and then dies on the checksum with a bare "Corrupted pk3"; see
+// __hasProductId() below, which catches that before the engine ever boots.
 window.__JKA_GAMEDIR = 'demo';
 window.__JKA_PAKS = (window.__JKA_PAKS || ['assets0.pk3']);
+
+// Ask the dev server what is actually staged (server.py's /__paks). If base/ holds paks,
+// this is a full install and we play that; otherwise we stay on the demo path. Static
+// hosts have no /__paks, so production simply keeps the demo — same page, both data sets,
+// which is the arrangement docs/DATA.md describes.
+async function discoverPaks(){
+  try {
+    var r = await fetch('__paks?dir=base', { cache: 'no-store' });
+    if (!r.ok) return false;
+    var names = await r.json();
+    if (!Array.isArray(names) || !names.length) return false;
+    window.__JKA_GAMEDIR = 'base';
+    window.__JKA_PAKS = names;
+    return true;
+  } catch (e) { return false; }
+}
 // Optional launch commands via ?args=.
 var __argParam = new URLSearchParams(location.search).get('args');
 
 var Module = {
   canvas: document.getElementById('canvas'),
   arguments: __argParam ? __argParam.split(/\s+/).filter(Boolean) : [],
-  print:    (t)=>console.log(t),
-  printErr: (t)=>console.warn(t),
+  // Route through the same hoisted handlers the ring installs below (see "Console
+  // hygiene"). They used to differ -- this literal wrote straight to console.log/warn while
+  // a later assignment replaced them with the ring versions -- and emscripten captures
+  // printErr once, early, so exactly which one a given line took was a race. In practice one
+  // of the two GL-emulation banners went to the ring and the other to console.warn. Same
+  // function in both places, no race.
+  print:    (t)=>__idt3_print(t),
+  printErr: (t)=>__idt3_printErr(t),
   setStatus: setLoading,
-  onFatal: (t)=>{ msg.style.color='#c33'; msg.textContent = 'FATAL: '+t; },
+  onFatal: (t)=>{ setFatal(t); },
   preRun: [function(){
-    // Persist configs + savegames in IndexedDB at /userdata (idTech3 fs_homepath).
-    ENV.HOME = '/userdata';
+    // ── Persistence ─────────────────────────────────────────────────────────────────────
+    // JKA has NO fs_homepath. The string does not appear anywhere in the engine source (unlike
+    // Q3/RTCW, which is where the original assumption here came from), so setting ENV.HOME and
+    // mounting IDBFS at /userdata persisted NOTHING: the engine writes savegames to
+    // "saves/<name>.sav" relative to the gamedir (sv_savegame.cpp:167) and its config to
+    // <gamedir>/jaconfig.cfg, i.e. /jka/base/. Both were landing in plain MEMFS and dying with
+    // the tab, while /userdata stayed empty — verified by walking both trees at runtime:
+    // /jka/base/saves held auto.sav + auto_t1_sour.sav and /jka/base held jaconfig.cfg, and
+    // /userdata was "(empty)".
+    //
+    // So mount IDBFS on the directory the engine actually writes saves to. /jka/base itself
+    // cannot be the mount point — the staged pak files live there, and IDBFS would try to
+    // push 1.2GB of retail assets into IndexedDB.
     FS.mkdir('/userdata');
     FS.mount(IDBFS, {}, '/userdata');
     FS.mkdir('/jka');
     FS.mkdir('/jka/base');            // BASEGAME
     FS.mkdir('/jka/demo');            // DEMOGAME — where the free demo's pak lives
+    // Both gamedirs get a persistent saves/ so switching between demo and retail keeps each
+    // set. The engine would otherwise mkdir these itself, as plain MEMFS, on first save.
+    FS.mkdir('/jka/base/saves');
+    FS.mount(IDBFS, {}, '/jka/base/saves');
+    FS.mkdir('/jka/demo/saves');
+    FS.mount(IDBFS, {}, '/jka/demo/saves');
     addRunDependency('idbfs-restore');
     FS.syncfs(true, function(err){
       if (err) console.warn('IDBFS restore failed', err);
+      // The config is a single small file in a directory we cannot mount (paks live there), so
+      // it is mirrored instead. This runs before Com_Init execs jaconfig.cfg, which is the
+      // whole point — otherwise every reload started at engine defaults and the boot log said
+      // "couldn't exec jaconfig.cfg" forever.
+      try { __restoreCfg(); } catch (e) { console.warn('config restore failed', e); }
       removeRunDependency('idbfs-restore');
     });
     // Mount staged paks + the SP game side module. JK2/JKA SP link cgame+ui
     // into the exe, so the game DLL is the only separate module.
+    //
+    // Streamed, not buffered: a retail install is ~1.2GB across assets0..3, and
+    // `FS.writeFile(dst, new Uint8Array(await r.arrayBuffer()))` holds every pak TWICE at
+    // peak — once as the response buffer, once as MEMFS's own copy — which is 1.3GB of
+    // avoidable headroom on assets1.pk3 alone. Read the body into one exactly-sized array
+    // and hand that array to MEMFS with canOwn=1, so MEMFS adopts it instead of copying.
+    // Streaming also yields real byte progress; the demo's single 9MB pak finished before
+    // anyone could read the old "downloading" line, a 1.2GB load very much does not.
     var __gd = window.__JKA_GAMEDIR || 'base';
-    var __files = (window.__JKA_PAKS || []).map(function(n){ return [__gd+'/'+n, '/jka/'+__gd+'/'+n]; })
-      .concat([['qagame.wasm','/jka/qagame.wasm']]);
-    __files.forEach(function(pair){
-      var url = pair[0], dst = pair[1];
-      addRunDependency('pre:'+url);
-      setLoading('downloading '+url);
-      fetch(url).then(async function(r){
-        if (!r.ok) throw new Error(url+': HTTP '+r.status);
-        FS.writeFile(dst, new Uint8Array(await r.arrayBuffer()));
-        removeRunDependency('pre:'+url);
-      }).catch(function(e){ console.warn('preload failed:', e.message); removeRunDependency('pre:'+url); });
+    var __files = (window.__JKA_PAKS || []).map(function(n){ return ['' + __gd + '/' + n, '/jka/' + __gd, n]; })
+      .concat([['qagame.wasm', '/jka', 'qagame.wasm']]);
+    var __MB = function(b){ return (b / 1048576).toFixed(1); };
+    // Every pak is fetched CONCURRENTLY, so a per-file percentage makes the bar jump backwards
+    // each time another file reports. Accumulate across all of them and show one honest total.
+    // Files whose headers have not arrived yet contribute 0 to both sides, so the total grows
+    // as they land rather than starting wrong.
+    var __got = {}, __need = {};
+    function __reportProgress(){
+      var done = 0, total = 0, n = 0;
+      for (var k in __need){ total += __need[k]; done += (__got[k] || 0); n++; }
+      setProgress(done, total, 'Loading game data',
+        __MB(done) + ' / ' + __MB(total) + ' MB · ' + n + ' file' + (n === 1 ? '' : 's'));
+    }
+    async function __stage(url, dstDir, name, idx){
+      var r = await fetch(url);
+      if (!r.ok) throw new Error(url + ': HTTP ' + r.status);
+      var len = parseInt(r.headers.get('Content-Length') || '0', 10);
+      var label = name + ' (' + (idx + 1) + ' of ' + __files.length + ')';
+      var buf;
+      if (len > 0 && r.body && r.body.getReader) {
+        __need[name] = len; __got[name] = 0; __reportProgress();
+        buf = new Uint8Array(len);
+        var rd = r.body.getReader(), off = 0, c;
+        while (!(c = await rd.read()).done) {
+          if (off + c.value.length > len) { off = -1; break; }
+          buf.set(c.value, off); off += c.value.length;
+          __got[name] = off; __reportProgress();
+        }
+        // A truncated body would otherwise reach the engine as a silently zero-padded
+        // pak, i.e. a bogus checksum and an unexplained "Corrupted pk3" much later.
+        if (off !== len) throw new Error(url + ': short read (' + off + ' of ' + len + ')');
+      } else {
+        setLoading('loading ' + label + '…');
+        buf = new Uint8Array(await r.arrayBuffer());
+      }
+      FS.createDataFile(dstDir, name, buf, true, false, true);
+    }
+    __files.forEach(function(f, i){
+      var url = f[0];
+      addRunDependency('pre:' + url);
+      __stage(url, f[1], f[2], i).then(function(){
+        removeRunDependency('pre:' + url);
+      }).catch(function(e){
+        // Staging failures used to warn and drop the dependency, so the engine booted on
+        // top of missing data and died later somewhere unrelated. Fail loudly, here.
+        console.error('staging failed:', e.message);
+        try { Module.onFatal && Module.onFatal(e.message); } catch (_){}
+      });
     });
   }],
   onRuntimeInitialized: function(){
     // Engine drives its own frame loop via emscripten_set_main_loop.
     booted = true;
     setTimeout(hideLoading, 300);
+    // Fullscreen is the game's native presentation and is not discoverable otherwise.
+    setTimeout(function(){ __toast('Alt+Enter for fullscreen', 4000); }, 1800);
   }
 };
 
-// Flush persistence periodically and on tab hide/close.
-function sync(){ try { FS.syncfs(false, function(){}); } catch(e){} }
+// ── Config mirror ───────────────────────────────────────────────────────────
+// jaconfig.cfg lives in <gamedir>/, which cannot be an IDBFS mount point because the staged
+// pak files share that directory. It is a few KB, so mirror it to /userdata (which IS IDBFS)
+// instead of mounting. Saves need no mirror — /jka/*/saves are mounted directly.
+var __CFG = 'jaconfig.cfg';
+function __cfgGamedirs(){ return ['/jka/base', '/jka/demo']; }
+function __restoreCfg(){
+  __cfgGamedirs().forEach(function(dir){
+    var src = '/userdata/cfg' + dir.replace(/\//g, '_') + '_' + __CFG;
+    try {
+      var data = FS.readFile(src);                     // throws if absent: nothing saved yet
+      FS.writeFile(dir + '/' + __CFG, data);
+    } catch (e) { /* first run */ }
+  });
+}
+function __saveCfg(){
+  __cfgGamedirs().forEach(function(dir){
+    var dst = '/userdata/cfg' + dir.replace(/\//g, '_') + '_' + __CFG;
+    try {
+      var data = FS.readFile(dir + '/' + __CFG);       // throws until the engine writes one
+      FS.writeFile(dst, data);
+    } catch (e) { /* engine has not written a config yet */ }
+  });
+}
+// Flush persistence periodically and on tab hide/close. Copy the config into IDBFS FIRST —
+// syncfs only pushes what is already inside a mounted directory.
+function sync(){
+  try { __saveCfg(); } catch(e){}
+  try { FS.syncfs(false, function(){}); } catch(e){}
+}
 setInterval(()=>{ if (booted) sync(); }, 15000);
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) sync(); });
 window.addEventListener('pagehide', sync);
@@ -290,11 +555,97 @@ function __logLine(t){
   if (p) { p.textContent += t + '\n'; if (p.textContent.length > 120000) p.textContent = p.textContent.slice(-80000); p.scrollTop = p.scrollHeight; }
 }
 window.__idt3_dumpLog = function(){ return __LOG.join('\n'); };
-Module.print    = function(t){ __logLine(t); };
-Module.printErr = function(t){
+// Emscripten's GL emulation announces itself through printErr with two unconditional
+// lines the moment the WebGL context is created (libglemu.js:189 and :2843):
+//   "WARNING: using emscripten GL emulation. ... do not expect it to work."
+//   "WARNING: using emscripten GL immediate mode emulation. This is very limited ..."
+// They describe which backend is in use -- LEGACY_GL_EMULATION, which this port links on
+// purpose because idTech3's renderer is fixed-function -- and say nothing about the health
+// of this build. Neither is suppressible by a link flag. On an otherwise clean boot they
+// were the only two lines a reader could mistake for a problem, so they are recorded on
+// the informational stream with their origin instead of under the stderr "!" prefix.
+// Nothing is dropped: both still appear verbatim in the log and in the F9 dump.
+var __GLEMU_BANNER_RE = /^WARNING: using emscripten GL (emulation|immediate mode emulation)\b/;
+// Declared as hoisted functions, not assignments, so the Module literal further up can name
+// them before this block has run.
+function __idt3_print(t){ __logLine(t); }
+function __idt3_printErr(t){
+  if (__GLEMU_BANNER_RE.test(t)) { __logLine('(gl-emulation) ' + String(t).replace(/^WARNING: /, '')); return; }
   __logLine('! ' + t);
   if (__FATAL_RE.test(t)) { console.error(t); try { Module.onFatal && Module.onFatal(t); } catch(e){} }
-};
+}
+Module.print    = __idt3_print;
+Module.printErr = __idt3_printErr;
+// …and one of the two banners never reaches printErr at all. Traced with a CDP stack:
+//   at init <engine>.js:13511  (GLEmulation.init)
+//   at setupHooks / setupFuncs <engine>.js:15675
+//   at (anon) <engine>.js:34168
+// GLEmulation.init() runs from a top-level setupFuncs() call at line 34168, while the
+// hook that adopts our handler — `if (Module["printErr"]) err = Module["printErr"];` —
+// sits at line 34296, further down the same file. So at the moment that banner is printed
+// `err` is still the default console.error binding. (GLImmediate.init() runs later, at
+// context creation, which is why the second banner does go through printErr.)
+//
+// Divert exactly that one line, by content, and pass everything else through untouched.
+// This is not a console silencer: any other console.error/warn still reaches devtools.
+['error', 'warn'].forEach(function(k){
+  var orig = console[k].bind(console);
+  console[k] = function(){
+    var first = arguments.length ? arguments[0] : '';
+    if (typeof first === 'string' && __GLEMU_BANNER_RE.test(first)) {
+      __logLine('(gl-emulation) ' + first.replace(/^WARNING: /, ''));
+      return;
+    }
+    return orig.apply(null, arguments);
+  };
+});
+// ── ?diag=1 — live renderer HUD, for catching artifacts on real hardware ────
+// These artifacts do not reproduce in our headless captures: headless never resizes the window,
+// never changes devicePixelRatio, and runs SwiftShader rather than a real driver. So let the
+// player's own machine report instead. Shows fps, how many times the renderer has been
+// re-initialised (a vid_restart re-uploads every texture and re-runs R_SetColorMappings, which
+// on screen is a brightness flash), and how many resize-driven restarts were suppressed by the
+// cooldown. F9 downloads the whole engine log so it can be read after the fact.
+if (__q.has('diag')) document.addEventListener('DOMContentLoaded', function(){
+  var d = document.createElement('div');
+  d.id = 'vt-diag';
+  d.style.cssText = 'position:fixed;right:10px;top:10px;z-index:92;padding:7px 10px;'
+    + 'background:rgba(0,0,0,.72);border:1px solid var(--line);border-radius:5px;'
+    + 'font:11px/1.5 ui-monospace,Menlo,monospace;color:var(--gold-hi);white-space:pre;'
+    + 'pointer-events:none';
+  document.body.appendChild(d);
+  var n = 0, t0 = performance.now(), fps = 0;
+  (function tick(){ n++; var dt = performance.now() - t0;
+    if (dt >= 1000) { fps = n / (dt / 1000); n = 0; t0 = performance.now(); }
+    requestAnimationFrame(tick); })();
+  setInterval(function(){
+    var log = (window.__idt3_dumpLog ? window.__idt3_dumpLog() : '').split('\n');
+    var inits = 0, restarts = 0, suppressed = 0, last = '';
+    for (var i = 0; i < log.length; i++) {
+      var l = log[i];
+      if (l.indexOf('Initializing Renderer') !== -1) inits++;
+      if (l.indexOf('vid_restart #') !== -1) { restarts++; last = l.trim(); }
+      if (l.indexOf('vid_restart cooldown') !== -1) suppressed++;
+    }
+    var c = document.getElementById('canvas');
+    d.textContent = 'fps ' + fps.toFixed(0)
+      + '\nrenderer inits ' + inits
+      + '\nresize vid_restarts ' + restarts
+      + '\nsuppressed (cooldown) ' + suppressed
+      + '\ncanvas ' + (c ? c.width + 'x' + c.height : '-')
+      + '\nwindow ' + innerWidth + 'x' + innerHeight + ' dpr ' + (devicePixelRatio || 1)
+      + (last ? '\n' + last.slice(0, 46) : '')
+      + '\nF9 = download engine log';
+  }, 500);
+  addEventListener('keydown', function(e){
+    if (e.key !== 'F9') return;
+    e.preventDefault();
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([window.__idt3_dumpLog ? window.__idt3_dumpLog() : ''],
+                                          { type: 'text/plain' }));
+    a.download = 'jka-diag.log'; a.click();
+  });
+});
 if (__q.has('debug')) document.addEventListener('DOMContentLoaded', function(){
   var d = document.createElement('div');
   d.id = 'vt-log';
@@ -327,8 +678,21 @@ function __tuneArgs(){
   var aspect = Math.min(Math.max(vw / Math.max(vh, 1), 4/3), 21/9);
   var fov = Math.round(2 * Math.atan(Math.tan(73.74 * Math.PI / 360) * aspect) * 360 / Math.PI);
   fov = Math.min(Math.max(fov, 90), 121);
+  // Brightness: leave it to the engine. JKA already handles the no-hardware-gamma case —
+  // R_SetColorMappings() forces tr.overbrightBits to 0 when deviceSupportsGamma is false
+  // (and again when not fullscreen), which yields identityLight 1.0, i.e. correct
+  // brightness with no ramp needed. The old override block here fought a problem the
+  // engine had already solved:
+  //   r_overBrightBits 0    — already the JKA default, and forced to 0 regardless.
+  //   r_mapOverBrightBits 2 — NOT A JKA CVAR AT ALL (it is RTCW/Q3). Inert.
+  //   r_gamma 1.2           — already the JKA default in this build.
+  //   r_intensity 1.3       — the only real deviation, and a destructive one: it is baked
+  //                           into every texture at upload via s_gammatable[s_intensitytable[p]]
+  //                           and CLAMPS at 255, so highlights are permanently crushed to
+  //                           flat white. Measured on yavin1: 1.3 raised mean luma 44.5->65.5
+  //                           and pure-white clipped pixels 1.86%->2.67% of frame.
+  // All of these remain overridable per-run via ?r_intensity=…&r_gamma=… for A/B testing.
   var t = [
-    'r_overBrightBits','0', 'r_mapOverBrightBits','2', 'r_intensity','1.3', 'r_gamma','1.2',
     'r_picmip','0', 'r_textureMode','GL_LINEAR_MIPMAP_LINEAR',
     'r_ext_texture_filter_anisotropic','8',
     'com_maxfps','125', 'cg_fov',String(fov)
@@ -354,6 +718,7 @@ function boot(args, relay){
   } catch(e){}
   Module.arguments = __tuneArgs().concat(args && args.length ? args : []);
   var l = document.getElementById('vt-launcher'); if (l) l.remove();
+  var mb = document.getElementById('modal-bd'); if (mb) mb.remove();   // help sheet goes with it
   document.body.classList.add('launching');
   document.getElementById('load').style.display = 'flex';
   window.__idt3_booting = true;
@@ -370,13 +735,81 @@ function boot(args, relay){
 function card(id, fn){
   var el = document.getElementById(id); if (!el) return;
   el.addEventListener('click', function(e){
-    if (e.target.closest('select,input,option')) return;   // embedded controls keep their clicks
+    // Embedded controls (and the "?" help button) keep their own clicks — without this,
+    // opening help would also fire the card and launch the game underneath it.
+    if (e.target.closest('select,input,option,button')) return;
     fn();
   });
   el.addEventListener('keydown', function(e){
-    if (e.key === 'Enter' && !e.target.closest('select,input')) fn();
+    if (e.key === 'Enter' && !e.target.closest('select,input,button')) fn();
   });
 }
+
+// ── Help modal ──────────────────────────────────────────────────────────────
+// Docs-depth detail behind the cards' "?" icons, same component as ja2-web/openmw-web.
+// The card copy stays one sentence; everything people actually get stuck on lives here.
+var HELP_OWN = ''
+  + '<div class="m-kicker">Your copy &middot; nothing is uploaded</div>'
+  + '<h3 id="modal-title">Bring your own Jedi Academy</h3>'
+  + '<p>Own Jedi Academy? Point the page at the asset archives from your installed copy and it '
+  + 'plays in-engine, reading them straight from your disk &mdash; <b>no upload, no copy to a '
+  + 'server</b>.</p>'
+  + '<h4>1 &middot; Find your base folder</h4>'
+  + '<p>You need the <code>GameData/base</code> folder of a legal install. It holds the '
+  + '<code>.pk3</code> archives:</p>'
+  + '<ul>'
+  + '<li><b>Steam</b> &mdash; right-click the game in your Library, <b>Manage &rsaquo; Browse '
+  + 'local files</b>, then open <code>GameData\\base</code>. Usually<br>'
+  + '<code>&hellip;\\steamapps\\common\\Jedi Academy\\GameData\\base</code></li>'
+  + '<li><b>GOG</b> &mdash; <code>C:\\GOG Games\\Star Wars Jedi Knight - Jedi Academy\\GameData\\base</code></li>'
+  + '<li><b>Disc / other</b> &mdash; wherever you installed it, the <code>GameData\\base</code> '
+  + 'subfolder.</li>'
+  + '</ul>'
+  + '<h4>2 &middot; Select ALL of the assets files</h4>'
+  + '<p>Click <b>Choose .pk3 files</b> and select every <code>assets*.pk3</code> in that folder '
+  + '&mdash; on a stock install that is <code>assets0.pk3</code>, <code>assets1.pk3</code>, '
+  + '<code>assets2.pk3</code> and <code>assets3.pk3</code>. Ctrl+A in the picker is the easy way.</p>'
+  + '<p>A <b>partial</b> set is rejected before anything loads. The engine decides between the '
+  + 'full game and restricted demo mode by looking for a file called <code>productid.txt</code>, '
+  + 'and on a stock install that file lives inside <code>assets2.pk3</code>. Without it the '
+  + 'engine falls back to demo mode and then dies on a checksum with a bare <i>Corrupted pk3</i> '
+  + '&mdash; so this page checks first and tells you what is missing instead.</p>'
+  + '<h4>What runs</h4>'
+  + '<p>Single-player Jedi Academy, from the original Raven GPL source. Retail data is around '
+  + '1.2&nbsp;GB, so the first load takes a while; it is read from this machine, not downloaded '
+  + 'from anywhere.</p>'
+  + '<h4>Saves and settings</h4>'
+  + '<p>Saved games and your config persist in this browser\'s storage, so they survive a reload '
+  + 'but not clearing site data.</p>'
+  + '<h4>If something is off</h4>'
+  + '<ul>'
+  + '<li><b>"No full-game marker"</b> &mdash; you selected some but not all of the archives. Go '
+  + 'back and include <code>assets2.pk3</code>.</li>'
+  + '<li><b>Modded install</b> &mdash; extra <code>.pk3</code> files in <code>base</code> are '
+  + 'fine to leave unselected; only the stock <code>assets*.pk3</code> set is needed.</li>'
+  + '</ul>';
+(function(){
+  var bd = document.getElementById('modal-bd');
+  if (!bd) return;
+  var body = document.getElementById('modal-body');
+  window.__modalOpen = function(html){
+    body.innerHTML = html; bd.classList.add('show');
+    document.getElementById('modal-close').focus();
+  };
+  window.__modalClose = function(){ bd.classList.remove('show'); };
+  var hb = document.getElementById('help-own');
+  if (hb) {
+    // stopPropagation as well as the closest('button') guard above: belt and braces, since a
+    // stray launch here would discard whatever the player was about to read.
+    hb.addEventListener('click', function(e){ e.stopPropagation(); window.__modalOpen(HELP_OWN); });
+    hb.addEventListener('keydown', function(e){ e.stopPropagation(); });
+  }
+  document.getElementById('modal-close').addEventListener('click', window.__modalClose);
+  bd.addEventListener('click', function(e){ if (e.target === bd) window.__modalClose(); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && bd.classList.contains('show')) window.__modalClose();
+  });
+})();
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 // Saves/config live in IDBFS — ask the browser not to LRU-evict them.
@@ -393,42 +826,117 @@ document.getElementById('canvas').addEventListener('webglcontextlost', function(
   var done = false, go = function(){ if (!done) { done = true; location.reload(); } };
   try { FS.syncfs(false, go); setTimeout(go, 2500); } catch(e) { go(); }
 });
+// ── Fullscreen: Alt+Enter ───────────────────────────────────────────────────
+// Jedi Academy is a fullscreen game and the port had no way to get there at all. F11
+// works but is browser chrome, not the page; Alt+Enter is the shortcut a PC player's
+// hands already know. Registered in the CAPTURE phase at page load — i.e. before the
+// engine installs its own window key listener at IN_Init — so stopImmediatePropagation()
+// also keeps the engine from seeing a bare Enter and confirming whatever menu item is
+// under the cursor during the transition.
+// Entering or leaving fullscreen changes innerWidth/innerHeight, which the platform
+// layer's debounced resize->vid_restart already turns into a correctly-sized backing
+// store, so the render resolution follows the screen with no extra work here.
+addEventListener('keydown', function(e){
+  if (e.key === 'Enter' && e.altKey) {
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    var el = document.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) { try { var p = req.call(el); if (p && p.catch) p.catch(function(){}); } catch(_){} }
+  }
+}, true);
+// Transient top-centre hint, reused for the fullscreen tip and the pointer-lock tip.
+function __toast(text, ms){
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:70;'
+    + 'background:rgba(0,0,0,.75);color:var(--muted);border:1px solid var(--line);border-radius:5px;'
+    + 'padding:7px 14px;font:13px "Optima","Gill Sans",sans-serif;pointer-events:none';
+  d.textContent = text;
+  document.body.appendChild(d);
+  setTimeout(function(){ d.remove(); }, ms || 2600);
+}
 // Esc drops pointer lock; hint how to get the mouse back (the engine re-requests on click).
 document.addEventListener('pointerlockchange', function(){
   var had = window.__idt3_hadlock;
   window.__idt3_hadlock = !!document.pointerLockElement;
   if (had && !document.pointerLockElement && window.__idt3_booting) {
-    var d = document.createElement('div');
-    d.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:70;'
-      + 'background:rgba(0,0,0,.75);color:var(--muted);border:1px solid var(--line);border-radius:5px;'
-      + 'padding:7px 14px;font:13px "Optima","Gill Sans",sans-serif;pointer-events:none';
-    d.textContent = 'click to recapture the mouse';
-    document.body.appendChild(d);
-    setTimeout(function(){ d.remove(); }, 2600);
+    __toast('click to recapture the mouse');
   }
 });
 // ?bright=N — page-level brightness fallback (CSS filter on the canvas only).
 if (__q.get('bright')) document.getElementById('canvas').style.filter = 'brightness(' + (+__q.get('bright') || 1) + ')';
 
-(function(){
-  if (__argParam) { boot(Module.arguments, window.__IDT3_NET_RELAY || null); return; }  // ?args= deep link
+// Does any picked pak carry productid.txt? FS_SetRestrictions() resolves that file
+// through the search path, and whether it resolves is the entire difference between the
+// full game and restricted demo mode \u2014 in stock JKA it lives inside assets2.pk3. A zip's
+// central directory sits at the END of the archive, so slicing the tail lists every entry
+// name without reading (or inflating) hundreds of MB. Checking here turns "you forgot
+// assets2.pk3" from a bare `Corrupted pk3` fatal, thrown minutes into the load, into a
+// sentence the player can act on.
+async function __hasProductId(files){
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    var tail = f.slice(Math.max(0, f.size - 4194304));
+    var txt = new TextDecoder('latin1').decode(new Uint8Array(await tail.arrayBuffer()));
+    if (txt.indexOf('productid.txt') !== -1) return true;
+  }
+  return false;
+}
 
-  card('card-demo', function(){ boot([]); });
+(function(){
+  // Probe for a staged full install before anything is clickable, so the first card can
+  // name what it will actually launch. Static hosts have no /__paks; it 404s and we stay
+  // on the demo copy.
+  var __ready = discoverPaks().then(function(retail){
+    if (!retail) return;
+    var c = document.getElementById('card-demo');
+    if (!c) return;
+    c.querySelector('.kicker').textContent = 'Installed data';
+    c.querySelector('h2').textContent = 'Play Jedi Academy';
+    c.querySelector('p.lead').textContent = 'The full game \u2014 ' + window.__JKA_PAKS.length
+      + ' asset paks are staged on this server.';
+    c.querySelector('.go').firstChild.nodeValue = 'Start the game ';
+  });
+
+  if (__argParam) { __ready.then(function(){ boot(Module.arguments, window.__IDT3_NET_RELAY || null); }); return; }  // ?args= deep link
+
+  card('card-demo', function(){ __ready.then(function(){ boot([]); }); });
   var ownInput = document.getElementById('own-files');
   card('card-own', function(){ ownInput.click(); });
-  ownInput.addEventListener('change', function(){
+  ownInput.addEventListener('change', async function(){
     var files = Array.from(ownInput.files || []);
     if (!files.length) return;
+    // Report into the card's .note line rather than overwriting its lead paragraph: the lead
+    // explains what the card does and is still needed after a rejection, so clobbering it left
+    // the player with an error where the instructions used to be.
+    var note = document.getElementById('own-note');
+    if (note) { note.className = 'note muted';
+                note.textContent = 'Checking ' + files.length + ' pak' + (files.length === 1 ? '' : 's') + '\u2026'; }
+    if (!(await __hasProductId(files))) {
+      if (note) {
+        note.className = 'note warn';
+        note.textContent = 'That set has no full-game marker (productid.txt), so the engine '
+          + 'would fall back to demo mode and reject it. Select ALL of the assets*.pk3 files '
+          + 'in GameData/base \u2014 on a stock install the marker is inside assets2.pk3.';
+      }
+      ownInput.value = '';
+      return;
+    }
     window.__JKA_PAKS = [];               // silence the built-in demo fetch
     window.__JKA_GAMEDIR = 'base';
-      Module.preRun.push(function(){             // stage the picked paks locally
+    Module.preRun.push(function(){             // stage the picked paks locally
       files.forEach(function(f){
         addRunDependency('own:'+f.name);
         setLoading('loading '+f.name+'\u2026');
+        // canOwn=1: adopt the File's buffer instead of letting MEMFS copy it. Retail is
+        // ~1.2GB, and the copy doubled that at peak for no benefit.
         f.arrayBuffer().then(function(buf){
-          FS.writeFile('/jka/base/'+f.name, new Uint8Array(buf));
+          FS.createDataFile('/jka/base', f.name, new Uint8Array(buf), true, false, true);
           removeRunDependency('own:'+f.name);
-        }).catch(function(e){ console.warn('local pak failed:', e.message); removeRunDependency('own:'+f.name); });
+        }).catch(function(e){
+          console.error('local pak failed:', e.message);
+          try { Module.onFatal && Module.onFatal(f.name + ': ' + e.message); } catch (_){}
+        });
       });
     });
     boot([]);

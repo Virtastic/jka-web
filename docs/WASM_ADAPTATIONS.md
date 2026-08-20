@@ -4540,3 +4540,49 @@ before publication: a probe-generated menu warning, runs invalidated by a dead d
 cap mistaken for a result, and a stale probe run after a failed patch. The rule that would have
 caught this one: **a counter with a capacity limit must report whether it hit that limit**, and a
 search over a bounded sample must never be phrased as a search over the whole population.
+
+## The stuck task identified: a ROFF playback that never completes
+
+Recording both ends of the completion handshake -- every `Q3_TaskIDSet` and every
+`Q3_TaskIDComplete` that finds a pending task -- four failing runs:
+
+```
+SET n=143 lastId=137 ent=644 type=4      (type 4 = TID_MOVE_NAV)
+CMP n=101 lastId=135 ent=644
+```
+
+Entity **644** is handed MOVE_NAV task **137** -- exactly the id the group waits on -- and the last
+completion that same entity signals is **135**. So the task is issued correctly, to the right
+entity, and its completion simply never arrives. Nothing is mismatched or misrouted; one specific
+scripted movement never finishes.
+
+**Entity 644 is not Kyle.** From the script trace it is `cinematic4_ravensclaw` -- the Raven's Claw.
+The group name `KYLE_WALK` is just a label the script author reused; the task stuck inside it
+belongs to the ship:
+
+```
+cinematic4_ravensclaw(644): play( "PLAY_ROFF", "roff/cinematic4_claw_hover" );
+cinematic4_ravensclaw(644): wait("HOVER");
+cinematic4_ravensclaw(644): wait("roff");
+```
+
+So the thing that never completes is a **ROFF playback** -- and ROFF is the subsystem this port
+already had to repair once. `InitGame()` carries a `.ROF` cache reset (`num_roffs`) added because
+the count climbed across map loads until MAX_ROFFS was hit, after which every further `.ROF` was
+refused and *scripted cameras and movers stopped working*. That is a description of this defect's
+symptom, which makes the existing reset the first thing to re-examine: whether it is sufficient,
+whether anything else in `g_roff.cpp` carries state across a load, and whether a ROFF already
+playing when the level ends leaves the entity's playback state stale.
+
+### Chain of reasoning, now complete end to end
+
+1. `devmap` the current level; the reload's cutscene runs ENABLE > MOVE > PAN > ZOOM.
+2. It reaches `wait( "KYLE_WALK" )` and stops -- 3,349 incomplete evaluations of that one wait.
+3. The group holds exactly one task (`done=0 of=1`), MOVE_NAV id 137 on entity 644.
+4. Entity 644 is the Raven's Claw, whose task is a ROFF playback (`cinematic4_claw_hover`).
+5. That playback never signals completion, so the group never completes.
+6. The script never reaches `camera( DISABLE )`, so `in_camera` stays set.
+7. `UI_SetActiveMenu` returns at its first line, so ESC does nothing and the pause menu never opens.
+
+Every link is measured rather than inferred, and the earlier claims about stale task numbering and
+about a camera/player deadlock are both retracted above.

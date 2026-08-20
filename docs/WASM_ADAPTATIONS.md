@@ -4623,3 +4623,63 @@ instrument the `PLAY_ROFF` handler (`Q3_Play` / the roff-start entry in Q3_Inter
 hypothesis it was built to test -- stale task numbering, then the camera/player deadlock, now the
 stale ROFF timestamp. Each was plausible from the surrounding evidence and each was wrong. The
 counters cost a rebuild and a few minutes; the guesses would have cost a bad fix.
+
+## CORRECTION and mechanism: the ROFF loops, and each restart orphans the awaited task
+
+The entry above stating the Raven's Claw playback is "never armed" is **withdrawn**. It was drawn
+from `G_Roff`'s aggregate counters, which are dominated by the hundreds of entities that have no
+ROFF at all and therefore say nothing about any single one. Filtering every branch to entity 644:
+
+```
+calls=3383  noTime=226  notYet=0  noCache=0  tick=3157  done=77  lastCtr=3
+```
+
+The Claw **is** armed (226 idle calls before arming, out of 3,383), ticks 3,157 times, and its ROFF
+**completes 77 times** during the very run that hangs. Nothing about its playback is stuck.
+
+That is the fourth conclusion in this investigation taken from a counter that could not support it,
+after the 64-entry truncation retracted earlier. The rule stands and now has a second clause: a
+sample bounded in *size* must not be described as the whole population, and a sample aggregated
+across *subjects* must not be described as one subject.
+
+### What the numbers actually show
+
+`done=77` with `lastCtr` sitting at 2-34 means the ROFF is **looping** -- finishing and restarting
+throughout. The script drives that, visible in the trace roughly every two seconds:
+
+```
+play( "PLAY_ROFF", "roff/cinematic4_claw_hover" ); [13650]
+play( "PLAY_ROFF", "roff/cinematic4_claw_hover" ); [15650]
+play( "PLAY_ROFF", "roff/cinematic4_claw_hover" ); [17650]
+play( "PLAY_ROFF", "roff/cinematic4_claw_hover" ); [19650]
+```
+
+And `Q3_Play`'s PLAY_ROFF branch does this on **every** call, unconditionally:
+
+```c
+ent->roff_ctr = 0;
+Q3_TaskIDSet( ent, TID_MOVE_NAV, taskID );     // overwrites whatever was pending
+ent->next_roff_time = level.time;
+```
+
+`Q3_TaskIDComplete( ent, TID_MOVE_NAV )` completes whatever id is stored *at that moment*. So when
+a new PLAY_ROFF lands before the previous playback finishes, the earlier task id is overwritten and
+can never be completed by anything -- there is only one slot per task type. Task **137**, the one
+`KYLE_WALK` waits on, is orphaned exactly that way, while the 77 completions all belong to ids
+issued after it.
+
+This is a race in the shipped design rather than a porting defect per se: one `taskID[TID_MOVE_NAV]`
+slot, a script that restarts the same ROFF on a timer, and a wait bound to one particular
+invocation. On the first load the awaited invocation happens to finish before the next restart
+overwrites it; on the reload the timing differs and it does not. That is consistent with the
+intermittency (roughly one run in three) and with the fault being unreachable by normal play, where
+the level is entered once.
+
+### What this implies for a fix
+
+Nothing here points at a stale-state bug to clear, so the resets that fixed `num_roffs`,
+`NumMiscEnts` and `in_camera` have no analogue. The candidates are narrower and each needs
+weighing against the "strictly original sources" rule: not overwriting a pending task id while one
+is outstanding, or completing the outgoing id when PLAY_ROFF replaces it. Both change shipped
+behaviour and could alter script semantics elsewhere, so neither should be applied without
+understanding why the same script survives its first run.

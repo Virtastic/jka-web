@@ -5101,3 +5101,70 @@ outstanding. Several rounds of work rested on reading that state as pathological
   `extern "C"` function looks for the unmangled name while the C++ definition is mangled: the build
   is clean and the module traps at the first call, silently voiding the run. Variables are unaffected,
   which is why the ring arrays worked and the accessor did not. Smoke-test after every probe edit.
+
+### The console-only menu defect: solved. An `affect()` race that fails silently
+
+Root cause, measured end to end.
+
+`ICARUS_InitEnt()` creates an entity's sequencer **and** calls `ICARUS_AssociateEnt()`, which puts the
+entity's `script_targetname` into `ICARUS_EntList` -- the map `I_GetEntityByName()` reads. For NPCs
+that call lives in `NPC_Begin()`, which `NPC_Spawn_Go()` defers by one FRAMETIME. So an NPC exists
+from the moment the entity string is parsed but is not resolvable *by name* until later.
+
+`CSequencer::ParseAffect()` resolves `affect( "<name>" )` through that map, and when the lookup fails
+it does **not** fail the script:
+
+```c
+if (stream_sequencer == NULL) {
+    m_ie->I_DPrintf( WL_WARNING, "'%s' : invalid affect() target", entname );
+    //Fast-forward out of this affect block onto the next valid code
+    ...
+    return SEQ_OK;
+}
+```
+
+The whole block is skipped and the script continues as if it had run. A cutscene that drives its
+actors through `affect()` therefore issues its own camera commands, silently elides every actor
+block, and completes **without ever reaching `camera( DISABLE )`**. `in_camera` stays true,
+`GameAllowedToSaveHere()` returns false, `UI_SetActiveMenu` returns at its first line: ESC stops
+opening the in-game menu and the player is left frozen at the world origin.
+
+Measured on `kejim_post`, `devmap`ing the map already running. The actors are the two sequencers that
+drive the cutscene and issue DISABLE -- `cinematic1_jan` = ent 351, `cinematic1_kyle` = ent 353 --
+and they register at `level.time` 1550 on **both** loads:
+
+| load | level_start | cinematic1 | vs. registration (1550) | skipped affects |
+|------|-------------|------------|-------------------------|-----------------|
+| first  | t=1600 | t=1650 | after  | 0  |
+| reload | t=1450 | t=1500 | before | 28 |
+
+The scriptrunner is fired by the player's spawn-point targets, so its `level.time` depends on how
+quickly the client finishes loading; a warm reload connects sooner and wins the race against
+`NPC_Begin`. Nothing was ever *stalled* -- which is why twenty-odd rounds of stall-hunting found
+nothing. The script completed successfully every time, with a block quietly missing from the middle.
+
+**Fix** (`NPC_spawn.cpp`, in `NPC_Spawn_Go`): call `ICARUS_InitEnt( newent )` at spawn instead of
+leaving it to `NPC_Begin` a frame later. `ICARUS_InitEnt` early-returns when a sequencer already
+exists, so `NPC_Begin`'s call becomes a no-op and no behaviour changes. This removes the race rather
+than papering over it: the name is in the map before any script can run, whichever order the two
+happen in.
+
+**Verified:** `kejim_post` same-map reload 4/4 PASS (was 4/4 FAIL, the reliable reproducer);
+`artus_mine` PASS (previously failed about 1 run in 3); menus on first load still pass;
+`kejim_post -> kejim_base` transition passes; full SP campaign sweep **26 maps, 26 OK, 0 FAILED**
+back-to-back in one session, heap flat at 768MB.
+
+#### Two harness faults found while verifying, neither an engine fault
+
+- `verify-jk-save.mjs` keyed its Chrome profile directory by game name, not pid. One crashed run
+  leaves a `SingletonLock` behind and every later Chrome exits immediately; the harness then dies on
+  a null `webSocketDebuggerUrl`, which reads exactly like an engine failure. Fixed to be pid-unique,
+  like every other harness here. 529 stale `idt3-*` profile directories had accumulated in TEMP.
+- `verify-character.mjs` has never run on Windows: it hardcodes
+  `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` and `/tmp` paths instead of using
+  `chrome.mjs`. Left as-is and recorded here rather than silently counted as a pass or a failure.
+
+Separately, `verify-jk-save.mjs` currently FAILS on `kejim_post` with "Can't savegame while dead!" --
+the harness idles in a firefight and the player is killed before it saves. **Confirmed pre-existing**
+by stashing the fix, rebuilding and re-running: identical failure without it. It is a harness
+map-choice problem, not a regression, and is not fixed here.

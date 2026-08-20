@@ -4814,3 +4814,45 @@ that the two clean passes have no scripts at all, and that among script-bearing 
 not follow any simple count. The next comparison has to be dynamic -- what `kejim_post` does on its
 second load that `artus_topside` does not -- using the reliable reproducer rather than static
 inspection.
+
+## The fault generalises: a scripted navigation task that never completes
+
+Capturing whichever task group stalls, by name, on the two maps that fail:
+
+```
+artus_mine   group=HOVER        done=0 of=1  pend=135   stalls=3342
+kejim_post   group=nav_patrol2  done=0 of=1  pend=41    stalls=9014
+```
+
+**Two different groups on two different maps, with the identical shape**: a group holding exactly
+one task, that task never completed. This is the first evidence that the defect is not one script's
+quirk, and it retires a lot of the detail chased earlier -- the Raven's Claw, `cinematic4`, the
+specific ROFF file -- as `artus_mine`'s particular symptom rather than the fault itself.
+
+**`nav_patrol2` is not a cutscene.** It is an NPC patrol script; the earlier `kejim_post` trace shows
+`st_alert1(296): wait("nav_patrol2")`. So the common factor across both maps is not a camera, not a
+cutscene, and not ROFF playback specifically -- it is a **scripted navigation task (`TID_MOVE_NAV`)
+that never completes after a same-map reload**. On `artus_mine` that task happens to be driven by a
+ROFF; on `kejim_post` it is an NPC walking a patrol route.
+
+That also explains the `pit` / `valley` passes without appeal to cutscenes: those maps ship no
+scripts at all, so nothing ever waits on a navigation task.
+
+### Correction to an earlier entry
+
+The stalled group on `artus_mine` is recorded above as `KYLE_WALK`; this run reports `HOVER`. Both
+are real -- the cutscene contains several waits and the recorder keeps the most recent stalled one --
+but it means the specific group name was never the stable fact it was presented as. The stable fact
+is the shape: `done=0 of=1` on a navigation task.
+
+### Where this points
+
+Navigation is the subsystem this port already had to repair once, for a `CNavigator::Free()`
+use-after-free that deletes every node and never clears the vector -- harmless on PC only because
+the DLL unloads immediately afterwards. The shutdown log does print `... Navigation Data Cleared`,
+so the clear happens; what is not established is whether the rebuild on a *same-map* reload leaves
+NPCs able to complete navigation goals.
+
+The next measurement is therefore about navigation state across a reload, not about any one script:
+whether nav data is rebuilt, and whether `TID_MOVE_NAV` completions fire at all for a patrolling NPC
+on the second load.

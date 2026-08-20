@@ -4892,3 +4892,46 @@ playback ticks and completes normally, and every other id in the same run comple
 The untested direction that remains is the physical one: whether the entity actually reaches its
 navigation goal on the second load -- position and movement -- rather than any bookkeeping around
 the task. Nothing measured so far has looked at where the entity is or whether it moves.
+
+### The entity moves: the physical direction is eliminated too
+
+Recording the stalled task manager's owner entity and its `currentOrigin` at first and last stall:
+
+```
+artus_mine   owner=644  stalls=3351  (3428 -2990 1181) -> (3954 -2892 1616)  moved=689.3
+kejim_post   owner=347  stalls=8970  (-268 -516 32)    -> (169 -871 24)      moved=562.8
+```
+
+Neither entity is frozen. Both travel hundreds of units while the task that waits on them never
+completes. Combined with the 77 ROFF completions already measured on `artus_mine` and the fact that
+`nav_patrol2` is a patrol script, both are **looping** movements -- continuous motion that never
+reaches a terminal state satisfying the awaited task.
+
+That was the last direction with no prior eliminations, and it is now closed: the task bookkeeping is
+correct, the navigation data is intact, and the movers move.
+
+### Two new classes of self-inflicted measurement error, both worth the guard
+
+* **A zero-error build does not mean the module runs.** `IDT3_EntPos` was declared `extern void` in
+  one TU and defined `extern "C"` in another. Under dynamic linking that resolves at load time, so
+  the build reported `BUILD ERRS: 0` and the module trapped on first call -- two runs produced empty
+  output that looked like probe failure. The gate on `build.errs` cannot catch this. A **boot smoke
+  test** is now run before spending measurement time: the module must load a map and report cleanly
+  first.
+* **`extern "C"` cannot appear at block scope.** The first attempt at the fix put the qualifier
+  inside a function body; that one the compiler did catch, before any runs.
+
+### Position after nineteen eliminations
+
+Every mechanism proposed for this defect has been measured and rejected: module-loading strategy;
+the navigator use-after-free as cause; `in_camera` resets at `InitGame` and `CG_Init`; stale
+`client_camera` deadlines; `level.time` not resetting; a shared `va()` buffer; a dangling `bs_name`;
+dying inside `ICARUS_RunScript`; ESC swallowed by the cinematic branch; `Menus_ActivateByName`
+failing; `CG_SHUTDOWN` skipped; per-instance divergence of `in_camera`; task ids from a previous
+load; a missing task group; stale wait timestamps; orphaning by PLAY_ROFF restart; ROFF cache
+exhaustion; stale ROFF timestamps; navigation state; and now entity movement.
+
+What remains true and unexplained: on a same-map reload, a group holding exactly one navigation task
+never completes, on at least two maps with different groups, while the task is issued to the right
+entity, that entity moves, the nav graph is intact, ROFF playback completes dozens of times, and
+every other task id in the same run completes.

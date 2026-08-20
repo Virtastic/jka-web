@@ -5,6 +5,19 @@ wrong and later retracted — lives in `docs/WASM_ADAPTATIONS.md`.
 
 This project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Testing
+
+- `verify-icarus-affect.mjs` now reloads **3 times** per run (`AFFECT_ROUNDS` to change it) and
+  judges on the worst single reload rather than one sample. The race is intermittent — three
+  single-shot control runs with the fix removed gave 28, 28 and 0 — so one clean reload was weak
+  evidence. A PASS is now stronger, though still not a proof of absence.
+- `verify-menu.mjs` detects a map that auto-advances (yavin1 moves to yavin1b partway through)
+  and reports the level-dependent checks as SKIPPED rather than FAILED. Those checks were
+  measuring a level the test was not aiming at, which is a property of the map rather than a
+  defect in the engine.
+
 ## [1.0.0] — 2026-08-20
 
 First public release: **Jedi Knight: Jedi Academy** single-player, running in the browser from

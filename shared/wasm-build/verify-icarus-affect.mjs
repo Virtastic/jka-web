@@ -23,7 +23,8 @@
 // Measured on the JK2 port's kejim_post with its fix REMOVED: 28 skipped blocks, 28 again,
 // then 0. It is a race, so it is intermittent. Two consequences worth being clear about:
 //   * a FAIL here is real - the blocks were counted, the script did not run;
-//   * a single PASS does NOT prove the race is gone. Run it repeatedly when it matters.
+//   * a PASS is stronger the more rounds it survives, but still cannot prove absence.
+//     AFFECT_ROUNDS=<n> raises the number of reloads (default 3).
 // No JKA map has been observed to trigger it at all, so here this guards against regression
 // rather than reproducing a seen failure.
 //
@@ -86,13 +87,26 @@ await sleep(6000);
 const cold = skipsIn(await ring());
 console.log(`first load          : ${cold.length} skipped affect block(s)`);
 
-// The warm reload is the trigger: the client is already connected, so the scriptrunner fires earlier
-// in level time relative to NPC registration.
-await exec(`devmap ${MAP}`);
-if (!await settle('reload')) { (globalThis.__idt3_done = true, chrome.kill()); process.exit(1); }
-await sleep(10000);
+// The warm reload is the trigger: the client is already connected, so the scriptrunner fires
+// earlier in level time relative to NPC registration.
+//
+// Reload REPEATEDLY, because this is a race and one sample is weak evidence. Measured with the
+// fix removed, three separate single-shot runs gave 28, 28 and 0 - so a single clean reload
+// proves very little on its own. Each extra round is another chance for the race to lose.
+const ROUNDS = parseInt(process.env.AFFECT_ROUNDS || '3', 10);
+let prev = cold.length, worst = 0;
+for (let r = 1; r <= ROUNDS; r++) {
+  await exec(`devmap ${MAP}`);
+  if (!await settle(`reload ${r}`)) { (globalThis.__idt3_done = true, chrome.kill()); process.exit(1); }
+  await sleep(10000);
+  const now = skipsIn(await ring()).length;
+  const added = now - prev;
+  if (added > worst) worst = added;
+  console.log(`reload ${r}            : +${added} skipped affect block(s)`);
+  prev = now;
+}
 const warm = skipsIn(await ring());
-console.log(`after warm reload   : ${warm.length} skipped affect block(s) (cumulative)`);
+console.log(`after ${ROUNDS} reload(s)     : ${warm.length} skipped affect block(s) (cumulative)`);
 for (const l of warm.slice(0, 6)) console.log('   ' + l.replace(/\^[0-9]/g, '').trim());
 
 // Compare the reload against the COLD baseline, not against zero.
@@ -106,9 +120,9 @@ for (const l of warm.slice(0, 6)) console.log('   ' + l.replace(/\^[0-9]/g, '').
 // The race has a different shape: it is warm-ONLY. kejim_post without the fix is 0 cold and 28 on
 // the reload. So the assertion is that reloading must not introduce MORE skips than the map already
 // had - a delta above the baseline is the regression.
-const delta = warm.length - cold.length;
+const delta = worst;   // worst single reload, not the total across rounds
 const bad = delta > cold.length;
-console.log(`\nbaseline (cold): ${cold.length}   reload added: ${delta}`);
+console.log(`\nbaseline (cold): ${cold.length}   worst single reload added: ${delta}   over ${ROUNDS} round(s)`);
 console.log(bad
   ? `FAIL: the reload added ${delta} skipped affect block(s) over a baseline of ${cold.length}`
     + ' - that is the ICARUS registration race, not map content'

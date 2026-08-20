@@ -1729,6 +1729,32 @@ gentity_t *NPC_Spawn_Do( gentity_t *ent, qboolean fullSpawnNow )
 	newent->flags |= FL_NOTARGET;//So he's ignored until he's fully spawned
 	newent->s.eFlags |= EF_NODRAW;//So he's ignored until he's fully spawned
 
+	// idTech3-web: register the NPC with ICARUS here, at spawn, rather than leaving it to
+	// NPC_Begin. Same change as the JK2 port, and for the same reason.
+	//
+	// InitEntity() takes an Icarus ID AND calls AssociateEntity(), which is what puts the NPC's
+	// script_targetname into the entity map that CQuake3GameInterface::GetEntityByName() reads.
+	// NPC_Spawn_Go passes fullSpawnNow = qfalse, so the default path defers NPC_Begin -- and with
+	// it the registration -- by one FRAMETIME. InitEntity early-returns once m_iIcarusID is set,
+	// so NPC_Begin's existing call becomes a no-op and nothing else changes.
+	//
+	// The hazard: CSequencer::ParseAffect() resolves affect("<name>") through that map, and on a
+	// miss it does not fail the script -- it fast-forwards over the whole affect block and returns
+	// SEQ_OK. A cutscene that drives its actors through affect() then runs its own camera commands,
+	// silently elides every actor block, and finishes without reaching camera( DISABLE ), leaving
+	// in_camera set and the in-game menu shut. JKA has that identical fast-forward
+	// (icarus/Sequencer.cpp) and the identical deferred spawn.
+	//
+	// STATUS, stated honestly: this is LATENT here, not an observed failure. The JK2 reproducer is
+	// measured and documented (kejim_post: 28 skipped affect blocks on a warm reload, 0 on a cold
+	// one); JKA passed same-map reloads on t1_sour, t1_danger, t2_rogue and t3_bounty, and the one
+	// failing map, yavin1, fails for an unrelated reason (it auto-advances to yavin1b mid-test, so
+	// verify-menu's single-map assumptions do not hold -- its reload phase reports PASS). This is
+	// applied because the code shape and the silent failure mode are identical and the call is
+	// idempotent, not because the bug was seen here. Raven's own fullSpawnNow path, which calls
+	// NPC_Begin immediately, suggests they were aware of the ordering hazard.
+	Quake3Game()->InitEntity( newent );
+
 	if ( fullSpawnNow )
 	{
 		newent->owner = ent->owner;

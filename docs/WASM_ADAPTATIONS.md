@@ -5168,3 +5168,41 @@ Separately, `verify-jk-save.mjs` currently FAILS on `kejim_post` with "Can't sav
 the harness idles in a firefight and the player is killed before it saves. **Confirmed pre-existing**
 by stashing the fix, rebuilding and re-running: identical failure without it. It is a harness
 map-choice problem, not a regression, and is not fixed here.
+
+### JKA: the same `affect()` hazard, removed pre-emptively
+
+JKA carries the identical shape:
+
+- `CQuake3GameInterface::InitEntity()` takes an Icarus ID **and** calls `AssociateEntity()`, which is
+  what puts an NPC's `script_targetname` into the map `GetEntityByName()` reads. Idempotent -- it
+  early-returns once `m_iIcarusID` is set.
+- `NPC_Spawn_Go()` calls `NPC_Spawn_Do( ent, qfalse )`, so the default path defers `NPC_Begin()`, and
+  with it the registration, by one FRAMETIME.
+- `icarus/Sequencer.cpp` has the same silent fast-forward: on a failed `affect()` lookup it skips the
+  whole block and returns `SEQ_OK`.
+
+Fixed the same way -- `Quake3Game()->InitEntity( newent )` at spawn in `NPC_Spawn_Do`, which makes
+`NPC_Begin`'s existing call a no-op.
+
+**This is latent here, not an observed failure, and is recorded as such.** The measured reproducer is
+JK2's (`kejim_post`: 28 skipped affect blocks on a warm reload, 0 on a cold one). JKA passed same-map
+reloads on `t1_sour`, `t1_danger`, `t2_rogue` and `t3_bounty`. It is applied because the code shape
+and the silent failure mode are identical and the call costs nothing, not because the bug was seen.
+Raven's own `fullSpawnNow` path -- which calls `NPC_Begin` immediately -- suggests awareness of the
+ordering hazard.
+
+Verified: full JKA campaign sweep **34 maps, 34 OK, 0 FAILED** back-to-back in one session, heap flat
+at 768MB; `t1_sour` same-map reload menu PASS; save round-trip PASS with the save surviving a page
+reload through IDBFS.
+
+#### `yavin1` fails verify-menu, and it is not this
+
+Recorded so it is not mistaken for the defect later. `yavin1` fails **deterministically**, but the
+signature is the opposite one -- a menu *opening* where the contract expects a refusal -- and its
+second-load phase reports PASS. `yavin1` is a two-part level that auto-advances to `yavin1b` partway
+through the run (the log shows `Server: yavin1` / `Server: yavin1b` on each load), so verify-menu's
+single-map assumptions do not hold on it: camera state resets underneath the camera/save contract
+check. Its sibling failure, "CDP key events are not reaching the engine key system at all", is
+contradicted two lines above by ESC opening the menu after 9 presses, so that probe is unreliable on
+this map too. Pre-existing and unrelated to any change here; `yavin1` and `yavin1b` both load and
+reach gameplay cleanly in the sweep.

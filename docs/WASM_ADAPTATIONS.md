@@ -5278,3 +5278,47 @@ real engine failure in CI output.
 removed them: 529 had accumulated before one stale `SingletonLock` began making every later Chrome
 exit instantly, and a sweep later measured **20.4 GB** of them. Only names carrying the current pid
 are reaped, so a concurrently running harness that shares a fixed name is never touched.
+
+### Correction: the `affect()` fix narrows the race, it does not close it
+
+An earlier entry here, and the source comment in `NPC_spawn.cpp`, claimed the fix put the entity name
+in the map "before any script can run, whichever order the two happen in". **That is false**, and is
+retracted. It was an argument from where the call was moved to, never a measurement.
+
+Measured, by printing every `AssociateEnt` alongside a frame counter reset in `G_InitGame`:
+
+```
+kejim_post, one load, WITH the fix:
+  total associations captured:                 209
+  registered before the first G_RunFrame:      200
+  registered after frame 0:                      9   <- every NPC, both cutscene actors included
+     cinematic1_jan   ent=351  t=1450  frame=5
+     cinematic1_kyle  ent=353  t=1450  frame=5
+```
+
+NPCs are not created during the entity-string parse. `SP_NPC_*` spawns a *spawner*, and
+`NPC_Spawn_Go` itself runs on a later think, so moving the registration into `NPC_Spawn_Go` shifts it
+from `level.time` 1550 to 1450 -- one frame and about 100ms earlier, still frame 5 rather than frame
+0. `cinematic1` fires at t=1500, comfortably after 1450, and that is the actual mechanism by which
+the bug stops happening. `kejim_start` fires at t=1450, the *same frame* as registration, and
+resolves only by intra-frame ordering.
+
+So the honest claim is a measured outcome, not a guarantee:
+
+| | before | after |
+|---|---|---|
+| `kejim_post` same-map reload, skipped affect blocks | 28 | **0** |
+| full SP campaign (26 maps), skipped affect blocks | -- | **0** |
+| `kejim_post` reload menu | 4/4 FAIL | 4/4 PASS |
+| `artus_mine` reload menu | ~1-in-3 FAIL | PASS |
+
+A structural fix would have to register the name at parse time -- impossible while the entity does
+not exist yet -- or make `ParseAffect` fail loudly instead of fast-forwarding over an unresolved
+block, which is a far broader behavioural change than this port should make. The JKA comment carries
+the same correction.
+
+**The lesson, which is the same one as the void control.** "I moved the call earlier, therefore it is
+early enough" is reasoning about a change, not evidence about the system. The frame counter took one
+build to add and immediately contradicted the claim. Anything asserted about ordering should be
+printed with the ordering key attached -- here, the frame number -- rather than inferred from where
+the source line sits.

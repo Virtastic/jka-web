@@ -1738,6 +1738,12 @@ gentity_t *NPC_Spawn_Do( gentity_t *ent, qboolean fullSpawnNow )
 	// it the registration -- by one FRAMETIME. InitEntity early-returns once m_iIcarusID is set,
 	// so NPC_Begin's existing call becomes a no-op and nothing else changes.
 	//
+	// SCOPE: this NARROWS the window by one frame; it does not close it. Measured on the JK2 side,
+	// where the equivalent change moves registration from level.time 1550 to 1450 -- still frame 5,
+	// not frame 0, because SP_NPC_* spawns a spawner and NPC_Spawn_Go itself runs on a think, so
+	// the name is NOT in the map before the first G_RunFrame. Do not read this as a guarantee that
+	// a script can never outrun registration.
+	//
 	// The hazard: CSequencer::ParseAffect() resolves affect("<name>") through that map, and on a
 	// miss it does not fail the script -- it fast-forwards over the whole affect block and returns
 	// SEQ_OK. A cutscene that drives its actors through affect() then runs its own camera commands,

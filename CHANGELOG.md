@@ -7,6 +7,14 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The loading overlay now uses the **same palette as the launcher and the rest of the Virtastic
+  set** (ja2-web): black `#0a0a09`, khaki-to-gold progress bar, red accent word, and the same
+  ember wash. It previously ran a warmer bronze/amber palette of its own, so the launcher and
+  the game page did not look like the same product. Structure was already identical; this is a
+  palette change only.
+
 ### Added
 
 - **Attio CRM capture** in the Cloud Locker (`cloud/attio.mjs`). On sign-in the backend

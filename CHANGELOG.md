@@ -5,9 +5,11 @@ wrong and later retracted — lives in `docs/WASM_ADAPTATIONS.md`.
 
 This project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.1] - 2026-08-20
 
 ### Testing
+
+Harness reliability only - the engine and the game build are unchanged from 1.0.0.
 
 - `verify-icarus-affect.mjs` now reloads **3 times** per run (`AFFECT_ROUNDS` to change it) and
   judges on the worst single reload rather than one sample. The race is intermittent — three

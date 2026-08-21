@@ -97,8 +97,9 @@ the engine covers, so they have been removed rather than republished:
 | Immersion FeelIt / IFC | Immersion Corporation | `FFC10.dll`, `FFC10d.dll`, `FFC10.lib`, `FFC10d.lib`, `IFC22.dll`, `IFC22.lib` |
 | Bink Video | RAD Game Tools | `binkw32.lib` |
 
-Also removed: Visual Studio 6 build artefacts with no licence significance and no use to anyone —
-`.ncb` (IntelliSense caches), `.opt` (workspace options) and `.plg` (build logs).
+Also removed: IDE and version-control artefacts with no licence significance and no use to
+anyone — `.ncb` (IntelliSense caches), `.opt` (workspace options), `.plg` (build logs), and a
+further 75 files (`vssver.scc` Visual SourceSafe status files and `.aps` resource caches). None is referenced by any build.
 
 This is a deliberate, documented exception to the "pristine import" rule in `CLAUDE.md`: the rule
 exists so that the diff against the drop *is* the port, and removing non-redistributable binaries

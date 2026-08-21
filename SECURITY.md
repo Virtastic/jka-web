@@ -17,6 +17,8 @@ acknowledgement; if the issue is confirmed, the fix and the advisory are publish
   untrusted input (a pk3, a savegame, a demo file) reaches engine code.
 - The optional **Cloud Locker backend** in `cloud/` — authentication, the upload allowlist, quota
   enforcement, and presigned-URL handling.
+- The optional **Attio CRM capture** in `cloud/attio.mjs`, which sends a signed-in user's email
+  address and display name to a third party. It is inert unless `ATTIO_API_KEY` is set.
 
 ## Out of scope
 

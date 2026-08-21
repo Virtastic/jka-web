@@ -19,6 +19,7 @@ import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { attioCapture } from './attio.mjs';
 
 const env = process.env;
 const BASE_URL = env.BASE_URL || 'http://localhost:8080';
@@ -82,6 +83,10 @@ let DATA_EXT_OK = /\.(slf|dat|edt|jsd|gap|bin|sti|npc|wav|lua|json|txt|ini|xml|m
 // patched archive, and no public hash list exists to close that gap, so tier 2 is the pragmatic
 // floor. The bytes land in a private, per-account, quota-bounded prefix, so a wrong file only ever
 // costs its owner space. VERIFY_DATA=0 turns both tiers off (unlisted or heavily modded installs).
+// ---- Attio CRM capture (see cloud/attio.mjs for the design and the privacy note) ----------
+// Inert without ATTIO_API_KEY: with no key configured, nobody's email leaves this box.
+const ATTIO = { apiKey: env.ATTIO_API_KEY || '', baseUrl: env.ATTIO_BASE_URL || 'https://api.attio.com' };
+
 const VERIFY_DATA = env.VERIFY_DATA !== '0';
 const SIZE_TOLERANCE = Number.isFinite(Number(env.SIZE_TOLERANCE)) && Number(env.SIZE_TOLERANCE) > 0
   ? Number(env.SIZE_TOLERANCE) : 0.05;                       // +/- 5%
@@ -403,6 +408,7 @@ async function totalUsage() {
 
 app.get('/api/health', async () => ({ ok: true, storage: store.kind,
   verifyData: Boolean(VERIFY_DATA && EDITION_PATHS), knownFiles: EDITION_PATHS, sizeTolerance: SIZE_TOLERANCE,
+  crm: Boolean(ATTIO.apiKey),
   limits: { maxFileBytes: MAX_FILE_BYTES, maxSaveBytes: MAX_SAVE_BYTES, maxUserBytes: MAX_USER_BYTES, maxUserFiles: MAX_USER_FILES },
   providers: Object.fromEntries(Object.entries(PROVIDERS).map(([k, v]) => [k, Boolean(v.id && v.secret)])) }));
 
@@ -453,6 +459,9 @@ app.get('/api/auth/:provider/callback', async (req, reply) => {
     const uid = uidFor(name, info.sub);
     await store.putJson(`${userPrefix(uid)}user.json`,
       { uid, provider: name, name: info.name, email: info.email, updated: new Date().toISOString() });
+    // Not awaited: sign-in must never wait on, or fail because of, the CRM.
+    attioCapture({ ...ATTIO, log: (lvl, msg, meta) => app.log[lvl](meta, msg) },
+      { email: info.email, name: info.name, provider: name });
     setSession(reply, uid, info.name || 'player');
     return reply.redirect('/index.html?src=cloud');   // straight into the game - the launcher was just the door
   } catch (e) {

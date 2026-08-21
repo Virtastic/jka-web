@@ -5,6 +5,25 @@ wrong and later retracted — lives in `docs/WASM_ADAPTATIONS.md`.
 
 This project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Attio CRM capture** in the Cloud Locker (`cloud/attio.mjs`). On sign-in the backend
+  asserts a person record (email + display name) in the operator's Attio workspace, keyed on
+  the email so repeats update rather than duplicate. Fired and not awaited, so sign-in can
+  never stall or fail because the CRM is slow or down, and completely inert without
+  `ATTIO_API_KEY` — with no key configured, nobody's email leaves the box.
+  **Privacy:** when enabled this sends a user's email address to a third party; say so in
+  your privacy policy and treat the workspace as holding user PII.
+
+### Fixed
+
+- `cloud/test-attio.mjs` exited 127 on Windows despite every check passing — it forced
+  `process.exit()` while a socket from the deliberate connection-refused probe was still
+  unwinding, tripping a libuv assertion. Any CI gate would have read a green test as a
+  failure. It now sets `process.exitCode` and lets node drain.
+
 ## [1.0.1] - 2026-08-20
 
 ### Testing

@@ -42,3 +42,6 @@ node_modules/
 
 # Local dev config
 shared/web/.env
+
+# CI: infra-specific config (hosts, key paths) — never in a public repo
+ci/jenkins/config.env

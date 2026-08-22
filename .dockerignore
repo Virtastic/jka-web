@@ -1,0 +1,25 @@
+# Keep commercial game data OUT of the image.
+#
+# The Dockerfile copies play/jka/ wholesale, and play/jka/base holds the retail .pk3 archives when
+# you have staged them locally (Jedi Academy is not redistributable). Without this file a `docker build`
+# on a developer machine silently bakes them into the image - hundreds of megabytes of someone
+# else's copyrighted content, in an artefact that then gets pushed to a registry or a test server.
+#
+# The deployed site serves no game data by design: players bring their own via the launcher's
+# folder picker, or it comes from the Cloud Locker / an S3 bucket at runtime.
+play/*/base/
+play/*/demo/
+play/*/saves/
+**/*.pk3
+**/*.sav
+
+# Build trees and local state - large, machine-specific, and rebuilt in CI anyway.
+build-jka/
+node_modules/
+cloud/node_modules/
+.git/
+ci/jenkins/config.env
+
+# Docs and tests are not part of the runtime image.
+docs/
+*.md

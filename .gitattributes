@@ -1,0 +1,8 @@
+# Shell scripts and Dockerfiles MUST be LF: they run on the Linux build/test servers, where a
+# CR (\r) from CRLF breaks bash ("bad interpreter") and Docker RUN lines. Pin it regardless of a
+# contributor's core.autocrlf.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+Dockerfile.*    text eol=lf
+*.mjs           text eol=lf
+shared/web/*.py text eol=lf

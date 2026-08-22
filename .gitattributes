@@ -1,0 +1,13 @@
+# Preserve the pristine engine sources byte-for-byte. The "diff of games/<game> against its import
+# commit IS the port" principle (CLAUDE.md) depends on line endings never being rewritten under us,
+# and Raven's original 2003 drop is CRLF. `* -text` disables ALL end-of-line conversion regardless
+# of a contributor's core.autocrlf, so the imported files stay exactly as imported.
+* -text
+
+# ...except the files that RUN on the Linux build/test servers, which MUST be LF — a CR from CRLF
+# breaks bash ("bad interpreter") and Docker RUN lines. These are our tooling, not pristine source.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+Dockerfile.*    text eol=lf
+*.mjs           text eol=lf
+shared/web/*.py text eol=lf

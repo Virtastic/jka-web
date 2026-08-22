@@ -23,10 +23,11 @@ COPY games/jka /src/games/jka
 COPY shared    /src/shared
 # build-jka.sh        -> play/jka/{jka.js,jka.wasm}   (MAIN_MODULE engine)
 # build-jka-modules.sh -> play/jka/qagame.wasm         (SIDE_MODULE game/cgame/Icarus)
-# env.sh finds emcc on PATH (the base image provides emcc 6.0.1 + python3 + node). The cache mount
-# keeps the object dir warm so an incremental push recompiles only what changed.
-RUN --mount=type=cache,id=jka-build,target=/src/build-jka \
-    bash shared/wasm-build/build-jka.sh \
+# env.sh finds emcc on PATH (the base image provides emcc 6.0.1 + python3 + node).
+# No BuildKit cache mount on build-jka/: a fresh compile is cheap for a test deploy and a cache
+# mount is a correctness hazard here (it persisted a CRLF-broken engine-sources.txt and root-owned
+# objects across failed builds). Reproducibility over a couple of minutes.
+RUN bash shared/wasm-build/build-jka.sh \
  && bash shared/wasm-build/build-jka-modules.sh \
  && echo "=== ERRS engine:$(wc -c < build-jka/build.errs) modules:$(wc -c < build-jka/modules/build.errs) ===" \
  && test ! -s build-jka/build.errs && test ! -s build-jka/modules/build.errs \

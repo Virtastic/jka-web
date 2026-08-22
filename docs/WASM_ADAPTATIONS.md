@@ -5467,3 +5467,41 @@ evidence, more than the pass count.
 The lesson is the one this log keeps relearning: a probe's incidental output - here a retry counter
 nobody was reading - was the thing that identified the fault, and only because a passing and a
 failing run were diffed line by line instead of the failing one being read on its own.
+
+### Building on a case-sensitive Linux CI host: three latent bugs the dev boxes hid
+
+The port had only ever been built on macOS/Windows — case-INSENSITIVE filesystems, always with a warm
+`build-<game>/` cache. Standing up the Jenkins pipeline (build in `emscripten/emsdk:6.0.1` on an
+Ubuntu builder, from a FRESH checkout) exposed three bugs that a dev box structurally cannot see. All
+three are fixed in the `build-*.sh` scripts (our tooling — no pristine source touched):
+
+1. **CRLF before the `.cpp` filter → empty/failed source list.** The `.dsp`/`.vcproj` are pristine
+   CRLF files. The list-regeneration pipeline ran `grep -iE '\.(cpp|c)$'` *before* `tr -d ''`, so
+   every path was `"...cpp"`, the `$` anchor never matched, grep returned "no match" (exit 1), and
+   `set -o pipefail` aborted the build — OR, in the module script, produced an empty list. A cached
+   list hid it on dev boxes. Fixed by moving `tr -d ''` ahead of the filter (engine + module).
+
+2. **`.dsp`/`.vcproj` filename case ≠ on-disk case.** The project files, authored on Windows, list
+   `mp3code/csbtL3.c`, `mp3code/cupL1.c`, `renderer/MatComp.c` (and for jk2 `ghoul2/G2_*.cpp`,
+   `renderer/tr_WorldEffects.cpp`) while the pristine files on disk are lowercase. 9 of ~144 engine
+   sources. clang on Linux: "no such file". Fixed with a `resolve_src_case()` step that maps each
+   listed path to its actual on-disk casing (case-insensitive `ls | grep -ixF`) — no renames, no edit
+   to the pristine project files.
+
+3. **The SIDE_MODULE link had no error check — it shipped a 375-byte stub silently.** With the game
+   source list empty (bug 1), `build-*-modules.sh` compiled zero game TUs, linked only the vararg
+   shim, and emitted `undefined exported symbol: "_GetGameAPI"` — but the link command's exit status
+   was never checked, so it printed "== done ==" and exited 0. The Docker build then packaged a
+   375-byte `qagame.wasm` as if healthy. Fixed by making the link fatal on failure AND asserting the
+   output is > 256 KB (a real module is ~1.5–2.1 MB). This guard is what turns "silently broken game"
+   into "build fails loudly".
+
+The lesson worth keeping: **"builds on my machine" and "builds from a fresh checkout on the CI host"
+are different claims.** A case-insensitive FS + a warm object cache had been masking a source list
+that was wrong on case, a filter that failed on CRLF, and a link that never checked its own exit
+code. The build's own `verify no game data` / size guards now make each failure visible instead of
+shipping a broken or empty artifact.
+
+Verified end to end: both games build in the emsdk container on the Ubuntu builder, deploy to the
+test app server, and pass the full serving-contract smoke test (jk2 :8082, jka :8083) — engine +
+game module present and correctly typed, no game data served.

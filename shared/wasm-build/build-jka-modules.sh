@@ -116,6 +116,13 @@ echo "== linking qagame.wasm =="
 # vmMain/dllEntry are exported too: SP merges cgame into this module, and the
 # engine's Sys_LoadCgame dlsym()s them out of the SAME library (see the original
 # win32 layer). idt3_vmMain_arr is the vararg-safe array entry VM_Call uses.
-em++ "${OBJS[@]}" -sSIDE_MODULE=2 -sEXPORTED_FUNCTIONS=_GetGameAPI,_vmMain,_dllEntry,_idt3_vmMain_arr ${IDTECH3_THREAD_FLAGS} -fexceptions \
-  -o "$OUT/qagame.wasm"
-echo "== done: $OUT/qagame.wasm =="
+if ! em++ "${OBJS[@]}" -sSIDE_MODULE=2 -sEXPORTED_FUNCTIONS=_GetGameAPI,_vmMain,_dllEntry,_idt3_vmMain_arr ${IDTECH3_THREAD_FLAGS} -fexceptions \
+  -o "$OUT/qagame.wasm"; then
+  echo "FATAL: qagame.wasm link failed (see errors above)"; exit 1
+fi
+# A real SIDE_MODULE is ~1.5 MB; a few hundred bytes means the game objects were missing and only
+# the export stub got written (the silent failure that shipped a broken module in jk2-web on a
+# fresh Linux build — see its build-jk2-modules.sh).
+_qsz=$(wc -c < "$OUT/qagame.wasm")
+[ "$_qsz" -gt 262144 ] || { echo "FATAL: qagame.wasm is only $_qsz bytes -- game objects did not link"; exit 1; }
+echo "== done: $OUT/qagame.wasm ($_qsz bytes) =="

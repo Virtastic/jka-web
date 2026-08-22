@@ -64,8 +64,11 @@ CXXARGS=( "${JK2_FLAGS[@]}" "${INCLUDES[@]}" "${DEFINES[@]}" )
 # Portable engine sources from the vcproj (win32/smartheap/mac excluded), then drop
 # force-feedback -- the only TU group still excluded. See the note below the extraction.
 if [ ! -s "$BUILD/engine-sources.txt" ]; then
+  # `tr -d '\r'`: starwars.vcproj is a pristine CRLF file (never normalized — see .gitattributes).
+  # Harmless here (the RelativePath match ends at a quote, before the CR), but kept identical to the
+  # jk2 engine build and the module builds so a fresh checkout on a CRLF-strict Linux host is safe.
   grep -oE 'RelativePath="[^"]+\.(cpp|c)"' "$SRC/starwars.vcproj" \
-    | sed -E 's/RelativePath="//; s/"//; s#\\#/#g; s#^\./##' \
+    | sed -E 's/RelativePath="//; s/"//; s#\\#/#g; s#^\./##' | tr -d '\r' \
     | grep -viE "win32/|smartheap/|mac/|0_compiled_first/|/FeelIt" | sort -u > "$BUILD/engine-sources.txt"
 fi
 # idTech3-web: compile the real sound stack -- mp3code decoder + client/snd_* + cl_mp3
@@ -80,6 +83,25 @@ fi
 # platform. Everything behind _IMMERSION is off in a stock retail install anyway
 # (use_ff defaults to "0"); see docs/WASM_ADAPTATIONS.md.
 ENGINE_CPP=$(grep -viE "^ff/|/ff/" "$BUILD/engine-sources.txt")
+
+# idTech3-web: resolve each source path to its ACTUAL on-disk case. starwars.vcproj was authored on
+# a case-INSENSITIVE Windows filesystem and lists e.g. mp3code/csbtL3.c, mp3code/cupL1.c,
+# renderer/MatComp.c while the pristine files are lowercase (csbtl3.c, cupl1.c, matcomp.c). Fine on
+# macOS/Windows; on a case-SENSITIVE Linux build server clang reports "no such file". Map
+# vcproj-case -> disk-case here rather than renaming pristine files or editing the pristine vcproj.
+# (The header comment elsewhere about "casing already matches" was about directories, not filenames.)
+resolve_src_case() {
+  local rel dir base hit
+  while IFS= read -r rel; do
+    [ -z "$rel" ] && continue
+    if [ -f "$SRC/$rel" ]; then echo "$rel"; continue; fi
+    dir=$(dirname "$rel"); base=$(basename "$rel")
+    hit=$(ls "$SRC/$dir" 2>/dev/null | grep -ixF "$base" | head -1)
+    [ -n "$hit" ] && echo "$dir/$hit" || echo "$rel"   # keep original if truly absent (errors visibly)
+  done
+}
+ENGINE_CPP=$(printf '%s\n' "$ENGINE_CPP" | resolve_src_case)
+
 SYS_CPP="sys_emscripten/idt3_dlopen.c sys_emscripten_jk/sys_jk.cpp sys_emscripten_jk/sys_jk_gl.cpp \
 sys_emscripten_jk/sys_jk_snd.cpp sys_emscripten_jk/sys_jk_stubs.cpp \
  sys_emscripten_jk/sys_jka_stubs.cpp"

@@ -13,7 +13,7 @@ pipeline {
     NAME      = 'jka-test'
     PORT      = '8083'
     TEST_HOST = 'user@<test-host>'
-    SSH_KEY   = '/var/jenkins_home/.ssh/jka-deploy'   // builder->test key, lives on the builder
+    SSH_KEY   = '/var/jenkins_home/.ssh/<deploy-key>'   // the container's test-server deploy key (same one the OpenMW jobs use)
     SMOKE_URL = 'https://jka.dev.virtastic.app'
   }
   stages {

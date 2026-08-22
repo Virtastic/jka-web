@@ -1,5 +1,14 @@
 # jka-web test pipeline (Jenkins → build server → test app server)
 
+## Jenkins job (live)
+
+**JKA-Web-WASM** on the builder's Jenkins (`http://<build-host>:8080`) is a
+*Pipeline script from SCM* job: every build clones latest `main` from
+`github.com/Virtastic/jka-web.git` (credential `github-virtastic`) and runs the repo's `Jenkinsfile`
+— Build (compile engine + game module in `emscripten/emsdk:6.0.1`) → Deploy (to
+`user@<test-host>:8083`) → Smoke. Click **Build Now**; no manual sync. The deploy uses the
+Jenkins container's own `/var/jenkins_home/.ssh/<deploy-key>`, already authorized on the test box.
+
 Mirrors the ja2-web setup. Builds the WASM engine **and** the game module on the build server and
 deploys to the **test** app server — never production. Production (`jka.virtastic.app`) is a separate
 path (`docker-compose.prod.yml` + the OVH/edge Caddy).

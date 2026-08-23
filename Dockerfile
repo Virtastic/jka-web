@@ -3,10 +3,10 @@
 # The wasm/js are gitignored build products (built with the pinned Homebrew emcc 6.0.1) and are
 # staged into play/jka/ in the build context by the deploy workflow (rsync'd onto the runner),
 # exactly like openmw-web bakes its rsync'd demo data. This image just serves that tree with the
-# COOP/COEP + noindex headers cross-origin isolation and the preview posture require.
+# COOP/COEP headers cross-origin isolation requires; html no-store + indexable, mirroring ja2-web.
 FROM nginx:1.27-alpine
 LABEL org.opencontainers.image.title="jka" \
-      org.opencontainers.image.description="Jedi Knight: Jedi Academy — WebAssembly port (preview)" \
+      org.opencontainers.image.description="Jedi Knight: Jedi Academy — WebAssembly port" \
       org.opencontainers.image.licenses="GPL-2.0-or-later"
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
 COPY play/jka/ /usr/share/nginx/html/

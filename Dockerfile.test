@@ -38,7 +38,7 @@ FROM nginx:1.27-alpine AS runtime
 LABEL org.opencontainers.image.title="jka-test" \
       org.opencontainers.image.description="Jedi Knight: Jedi Academy — WASM port (test build)" \
       org.opencontainers.image.licenses="GPL-2.0-or-later"
-# The purpose-built vhost: COOP/COEP/CORP + noindex on every response. (jka is single-threaded and
+# The purpose-built vhost: COOP/COEP/CORP on every response. (jka is single-threaded and
 # does not strictly need cross-origin isolation to run, but the header set is kept identical to the
 # rest of the Virtastic set, and the smoke test asserts it as a "config intact" check.)
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf

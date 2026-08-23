@@ -5,8 +5,9 @@ from Raven's **original** 2003 GPL source drop (jedis/jediacademy mirror).
 
 The engine is **GPLv2** — see `LICENSE`, and `games/jka/LICENSE.txt` in the drop itself. Retail game
 data is **not** included and is not redistributable: players supply their own legally-obtained copy.
-There is no freely-redistributable demo mission for Jedi Academy, so unlike jk2-web there is no
-no-data route.
+The official free JKA demo (`GameData/Demo/assets0.pk3` from the demo installer, checksum-verified
+as `DEMO_PAK_CHECKSUM` in the engine) provides the no-data route; the deployment serves it from
+`demo/` and the engine runs it in restricted demo mode (`fs_restrict 1`). See `play/jka/index.html`.
 
 ## Hard rule: strictly original sources
 

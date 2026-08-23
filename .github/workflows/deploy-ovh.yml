@@ -100,6 +100,7 @@ jobs:
           for hdr in "cross-origin-opener-policy: same-origin" "cross-origin-embedder-policy: require-corp"; do
             n=$(grep -ci "^$hdr" /tmp/h); test "$n" = 1 || { echo "FATAL: '$hdr' count=$n (want 1)"; exit 1; }
           done
-          grep -qi '^x-robots-tag: *noindex' /tmp/h || { echo "FATAL: missing X-Robots-Tag noindex"; exit 1; }
-          E -f -o /dev/null https://jka.virtastic.app/robots.txt
+          # Indexable posture (uniform with ja2-web): noindex must be GONE, and html must be no-store.
+          if grep -qi '^x-robots-tag' /tmp/h; then echo "FATAL: X-Robots-Tag still present"; exit 1; fi
+          grep -qi '^cache-control: *no-store' /tmp/h || { echo "FATAL: missing Cache-Control no-store on /"; exit 1; }
           echo "edge health OK"

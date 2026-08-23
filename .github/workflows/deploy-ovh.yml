@@ -28,7 +28,10 @@ jobs:
           test -n "$(ls -A "$HOME/jka-web-src/play/jka" 2>/dev/null)" \
             || { echo "FATAL: ~/jka-web-src/play/jka missing on the runner — build+rsync the wasm first." >&2; exit 1; }
           mkdir -p play/jka
-          rsync -a --delete "$HOME/jka-web-src/play/jka/" play/jka/
+          # Overlay ONLY the gitignored build products (wasm/js/data) onto the checkout. Committed
+          # html (index.html/launcher.html — the gold launcher) MUST come from git, never from the
+          # staging dir, which may hold a stale copy. --exclude protects them from copy and --delete.
+          rsync -a --delete --exclude='*.html' "$HOME/jka-web-src/play/jka/" play/jka/
           echo "staged $(find play/jka -type f | wc -l) files ($(du -sh play/jka | cut -f1))"
 
       - name: Build image

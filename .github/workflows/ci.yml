@@ -56,8 +56,9 @@ jobs:
           echo "ok: no .pk3/.sav tracked"
       - name: No internal infrastructure detail
         run: |
-          # The engineering log quotes historical sessions; the pristine drop is Raven's.
-          if git grep -nI -E '192\.168\.1\.(130|131)|user@|jenkins_home/\.ssh/(id_ed25519|jka-deploy)'                -- . ':!games/' ':!docs/WASM_ADAPTATIONS.md'; then
+          # games/ is Raven's pristine drop and the engineering log quotes historical sessions
+          # verbatim; this file necessarily contains the patterns it searches for.
+          if git grep -nI -E '192\.168\.[0-9]+\.[0-9]+|jenkins_home/\.ssh/(id_ed25519|jka-deploy)'                -- . ':!games/' ':!docs/WASM_ADAPTATIONS.md' ':!.github/workflows/ci.yml'; then
             echo "FATAL: internal infrastructure reference reintroduced"; exit 1
           fi
-          echo "ok: no lab hosts, users or key paths"
+          echo "ok: no lab hosts or key paths"

@@ -1,0 +1,24 @@
+# Public self-hosting compose for Jedi Academy.
+#
+#   docker compose up          ->  http://localhost:8080
+#
+# This BUILDS the engine from the sources in this repo (Dockerfile's default `runtime` target).
+# The first run pulls the emscripten toolchain image and compiles for a few minutes; after that
+# it is layer-cached. No game data is required to build.
+#
+# Production uses docker-compose.prod.yml instead — that one expects a prebuilt image and the
+# shared edge network, and publishes no ports. Do not confuse the two.
+services:
+  jka:
+    build:
+      context: .
+      target: runtime          # compile from source; production uses --target prebuilt
+    image: jka-web:local
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    # The site works with no game data: players point the launcher at their own GameData/base.
+    # To also offer the free demo mission, drop the official demo pak at play/jka/demo/assets0.pk3
+    # and uncomment this — it is then served at /demo/assets0.pk3 and the demo card appears.
+    # volumes:
+    #   - ./play/jka/demo:/usr/share/nginx/html/demo:ro

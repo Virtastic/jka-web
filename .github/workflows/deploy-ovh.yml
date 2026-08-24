@@ -19,7 +19,7 @@ jobs:
     runs-on: [self-hosted, ovh, virtastic]
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      TF_VAR_origin_ip: "REDACTED-ORIGIN-IP"
+      TF_VAR_origin_ip: ${{ vars.OVH_ORIGIN_IP }}
     steps:
       - uses: actions/checkout@v4
 
@@ -64,6 +64,14 @@ jobs:
           if [ -z "$CF" ]; then
             echo "::warning::CLOUDFLARE_API_TOKEN not available to this repo — skipping DNS upsert."
             echo "Grant the org secret to this repo (org Settings -> Secrets -> CLOUDFLARE_API_TOKEN) and re-run."
+            exit 0
+          fi
+          # The origin IP is an Actions VARIABLE (vars.OVH_ORIGIN_IP), not a literal — it must not
+          # live in a public repo. Without this guard an unset variable would upsert an EMPTY A
+          # record and take the site down, so skip loudly instead.
+          if [ -z "$ORIGIN" ]; then
+            echo "::warning::OVH_ORIGIN_IP variable not set — skipping DNS upsert (existing records left alone)."
+            echo "Set it at repo/org Settings -> Secrets and variables -> Actions -> Variables."
             exit 0
           fi
           ZID=$(curl -sS -H "Authorization: Bearer $CF" \

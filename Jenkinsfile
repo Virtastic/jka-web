@@ -12,8 +12,11 @@ pipeline {
     TAG       = 'jka:test'
     NAME      = 'jka-test'
     PORT      = '8083'
-    TEST_HOST = 'user@<test-host>'
-    SSH_KEY   = '/var/jenkins_home/.ssh/<deploy-key>'   // the container's test-server deploy key (same one the OpenMW jobs use)
+    // Host, user and key path are deliberately NOT in this file: it is public. Set them on the
+    // job (Manage Jenkins -> System -> Global properties -> Environment variables, or the job's
+    // own environment). The defaults below are placeholders and will not deploy anywhere.
+    TEST_HOST = "${env.JKA_TEST_HOST ?: 'user@test-host.example'}"
+    SSH_KEY   = "${env.JKA_SSH_KEY ?: '/var/jenkins_home/.ssh/your-deploy-key'}"
     SMOKE_URL = 'https://jka.dev.virtastic.app'
   }
   stages {
@@ -28,7 +31,7 @@ pipeline {
             ci/jenkins/smoke-test.sh "$SMOKE_URL"
           else
             echo "public origin not reachable yet; smoke-testing the container directly"
-            ci/jenkins/smoke-test.sh "http://<test-host>:$PORT"
+            ci/jenkins/smoke-test.sh "http://${TEST_HOST#*@}:$PORT"
           fi
         '''
       }

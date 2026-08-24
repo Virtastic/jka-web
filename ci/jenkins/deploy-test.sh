@@ -8,7 +8,7 @@ _cfg="$(dirname "$0")/config.env"
 # shellcheck disable=SC1090
 [ -f "$_cfg" ] && . "$_cfg"
 TEST_HOST="${TEST_HOST:?set TEST_HOST in ci/jenkins/config.env}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/jka-deploy}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/your-deploy-key}"
 TAG="${TAG:-jka:test}"
 NAME="${NAME:-jka-test}"
 PORT="${PORT:-8083}"

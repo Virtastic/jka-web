@@ -2,22 +2,22 @@
 
 ## Jenkins job (live)
 
-**JKA-Web-WASM** on the builder's Jenkins (`http://<build-host>:8080`) is a
+**JKA-Web-WASM** on the builder's Jenkins (`http://<your-jenkins>:8080`) is a
 *Pipeline script from SCM* job: every build clones latest `main` from
 `github.com/Virtastic/jka-web.git` (credential `github-virtastic`) and runs the repo's `Jenkinsfile`
 — Build (compile engine + game module in `emscripten/emsdk:6.0.1`) → Deploy (to
-`user@<test-host>:8083`) → Smoke. Click **Build Now**; no manual sync. The deploy uses the
+`<test-host>:8083`) → Smoke. Click **Build Now**; no manual sync. The deploy uses the
 Jenkins container's own `/var/jenkins_home/.ssh/<deploy-key>`, already authorized on the test box.
 
 Mirrors the ja2-web setup. Builds the WASM engine **and** the game module on the build server and
 deploys to the **test** app server — never production. Production (`jka.virtastic.app`) is a separate
 path (`docker-compose.prod.yml` + the OVH/edge Caddy).
 
-## Servers (Virtastic proxmox lab)
+## Servers (example lab)
 
 | Role         | ssh alias / host          | what it is                                    |
 |--------------|---------------------------|-----------------------------------------------|
-| Build server | `builder` (<build-host>) | Jenkins (Docker container) + Docker. Builds here. |
+| Build server | `builder` (your build host) | Jenkins (Docker container) + Docker. Builds here. |
 | Test app srv | `user@<test-host>`   | Runs `jka-test` (nginx) on `:8083`.           |
 | Ingress      | nginx-proxy-manager       | routes `jka.dev.virtastic.app` → `<test-host>:8083` (TLS/SNI). |
 
@@ -49,9 +49,9 @@ builder (so the workspace is the tree — no `sync-to-builder` needed) and runs 
 
 Requirements on the builder for the job to run:
 - The Jenkins container must reach the Docker daemon (docker socket mounted — "docker-outside-of-docker").
-- A **builder→test SSH key** at `/var/jenkins_home/.ssh/jka-deploy`, whose public half is in
+- A **builder→test SSH key** at `/var/jenkins_home/.ssh/<deploy-key>`, whose public half is in
   `user@<test-host>:~/.ssh/authorized_keys`. This key lives on the builder, never in git.
-- The Jenkins container/host must be able to reach `<test-host>` (same `vmbr0` bridge).
+- The Jenkins container/host must be able to reach `<test-host>`.
 
 ## Notes
 

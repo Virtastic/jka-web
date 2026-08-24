@@ -1,8 +1,12 @@
 name: ci
 
-# Builds the engine from source on a GitHub-hosted runner and asserts the repo stays clean.
-# Deliberately NOT on the self-hosted deploy box: this runs for pull requests from forks once
-# the repo is public, so it must never touch private infrastructure.
+# Runs on the Virtastic OVH runner — the same box the deploy uses, which already has Docker and
+# the pinned toolchain image cached. GitHub-hosted runners are not used here.
+#
+# SAFETY: once this repo is public, anyone can open a pull request, and a self-hosted runner
+# executes whatever that PR contains on our own hardware. The `if` on every job therefore refuses
+# pull requests that come from a fork; PRs from branches inside this repo (i.e. from people who
+# already have write access) still get full CI, and pushes to main always run.
 on:
   pull_request:
   push:
@@ -15,15 +19,21 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, ovh, virtastic]
     timeout-minutes: 45
-    container: emscripten/emsdk:6.0.1
     steps:
       - uses: actions/checkout@v4
+      - name: Clean stale build output
+        # The workspace persists between runs on a self-hosted runner, so a previous build's
+        # artefacts would otherwise make a broken compile look like it succeeded.
+        run: |
+          docker run --rm -v "$PWD":/w -w /w alpine:3             rm -rf build-jka play/jka/jka.js play/jka/jka.wasm play/jka/qagame.wasm
       - name: Build engine + game module
         run: |
-          bash shared/wasm-build/build-jka.sh
-          bash shared/wasm-build/build-jka-modules.sh
+          docker run --rm -v "$PWD":/src -w /src emscripten/emsdk:6.0.1 sh -c '
+            bash shared/wasm-build/build-jka.sh &&
+            bash shared/wasm-build/build-jka-modules.sh'
       - name: No compiler errors
         run: |
           echo "engine errs: $(wc -c < build-jka/build.errs) bytes"
@@ -35,17 +45,18 @@ jobs:
           ls -la play/jka/jka.js play/jka/jka.wasm play/jka/qagame.wasm
           # a silent link failure once produced a 375-byte qagame.wasm stub
           test "$(stat -c%s play/jka/qagame.wasm)" -gt 262144
-      - uses: actions/upload-artifact@v4
-        with:
-          name: engine
-          path: |
-            play/jka/jka.js
-            play/jka/jka.wasm
-            play/jka/qagame.wasm
-          retention-days: 7
+      - name: Image builds from a clean tree
+        # The headline promise in the README: a clone plus Docker gives a working site.
+        run: DOCKER_BUILDKIT=1 docker build --target runtime -t jka-web:ci .
+      - name: Tidy
+        if: always()
+        # Root-owned by the toolchain container, so remove it the same way.
+        run: docker run --rm -v "$PWD":/w -w /w alpine:3 rm -rf build-jka
 
   hygiene:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, ovh, virtastic]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: No game data tracked
@@ -58,7 +69,7 @@ jobs:
         run: |
           # games/ is Raven's pristine drop and the engineering log quotes historical sessions
           # verbatim; this file necessarily contains the patterns it searches for.
-          if git grep -nI -E '192\.168\.[0-9]+\.[0-9]+|jenkins_home/\.ssh/(id_ed25519|jka-deploy)'                -- . ':!games/' ':!docs/WASM_ADAPTATIONS.md' ':!.github/workflows/ci.yml'; then
+          if git grep -nI -E '192\.168\.[0-9]+\.[0-9]+|jenkins_home/\.ssh/(id_ed25519|jka-deploy)' -- . ':!games/' ':!docs/WASM_ADAPTATIONS.md' ':!.github/workflows/ci.yml'; then
             echo "FATAL: internal infrastructure reference reintroduced"; exit 1
           fi
           echo "ok: no lab hosts or key paths"

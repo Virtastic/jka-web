@@ -28,10 +28,16 @@ jobs:
           test -n "$(ls -A "$HOME/jka-web-src/play/jka" 2>/dev/null)" \
             || { echo "FATAL: ~/jka-web-src/play/jka missing on the runner — build+rsync the wasm first." >&2; exit 1; }
           mkdir -p play/jka
-          # Overlay ONLY the gitignored build products (wasm/js/data) onto the checkout. Committed
-          # html (index.html/launcher.html — the gold launcher) MUST come from git, never from the
-          # staging dir, which may hold a stale copy. --exclude protects them from copy and --delete.
-          rsync -a --delete --exclude='*.html' "$HOME/jka-web-src/play/jka/" play/jka/
+          # Copy ONLY the gitignored build products, by name. Everything else in play/jka/ is
+          # committed (index.html, launcher.html, og.png, ...) and must come from the checkout.
+          # An earlier version rsync'd the whole staging dir with --delete and an *.html exclude,
+          # which silently deleted every committed non-html asset the staging dir happened not to
+          # have — that is how the launcher, and later og.png, went missing in production.
+          for f in jka.js jka.wasm qagame.wasm; do
+            cp -f "$HOME/jka-web-src/play/jka/$f" play/jka/"$f"
+          done
+          # The free demo pak is a directory of its own and is safe to mirror wholesale.
+          rsync -a --delete "$HOME/jka-web-src/play/jka/demo/" play/jka/demo/
           echo "staged $(find play/jka -type f | wc -l) files ($(du -sh play/jka | cut -f1))"
 
       - name: Build image
@@ -114,4 +120,6 @@ jobs:
           # The free demo pak must be served: the launcher's "Play the demo" card depends on it.
           E -f -I https://jka.virtastic.app/demo/assets0.pk3 | grep -i '^content-length' \
             || { echo "FATAL: demo/assets0.pk3 not served"; exit 1; }
+          # The social card must exist: every og:image/twitter:image tag on the page points at it.
+          E -f -I https://jka.virtastic.app/og.png | grep -i '^content-length'             || { echo "FATAL: og.png not served"; exit 1; }
           echo "edge health OK"

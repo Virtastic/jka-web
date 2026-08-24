@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discord
+    url: https://discord.gg/PzFfDkbSue
+    about: Fastest place for help and questions.
+  - name: Discussions
+    url: https://github.com/Virtastic/jka-web/discussions
+    about: Longer-form questions, ideas and showcase threads.
+  - name: Report a security vulnerability
+    url: https://github.com/Virtastic/jka-web/security/advisories/new
+    about: Please report privately rather than in a public issue.

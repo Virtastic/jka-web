@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in the port misbehaves — a crash, a graphical fault, a map that will not load.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The single most useful thing you can include is the
+        **in-page console output** — the game page keeps a ring buffer of the engine's own log.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release tag, or the commit you built from.
+      placeholder: v1.1.0
+    validations: { required: true }
+  - type: dropdown
+    id: route
+    attributes:
+      label: Where is the game data coming from?
+      options:
+        - The free demo
+        - My own copy (folder picker)
+        - Cloud Locker
+        - A self-hosted instance
+    validations: { required: true }
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 141 on Windows 11
+    validations: { required: true }
+  - type: input
+    id: where
+    attributes:
+      label: Where it happens
+      description: Map name, menu screen, or "on boot".
+      placeholder: kejim_post, right after the first door
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations: { required: true }
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output
+      description: From the in-page console ring, or the browser devtools console.
+      render: text
+  - type: checkboxes
+    id: nodata
+    attributes:
+      label: Please confirm
+      options:
+        - label: I have not attached, linked or pasted any retail game data.
+          required: true

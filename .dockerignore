@@ -5,12 +5,14 @@
 # on a developer machine silently bakes them into the image - hundreds of megabytes of someone
 # else's copyrighted content, in an artefact that then gets pushed to a registry or a test server.
 #
-# The deployed site serves no game data by design: players bring their own via the launcher's
-# folder picker, or it comes from the Cloud Locker / an S3 bucket at runtime.
+# The deployed site serves only the freely-redistributable demo pak; retail data players bring via the
+# picker, or it comes from the Cloud Locker / an S3 bucket at runtime.
 play/*/base/
-play/*/demo/
 play/*/saves/
 **/*.pk3
+# EXCEPT the official free demo pak - freely redistributable, and the site's
+# "Play the demo" card depends on it being served. Retail base/ stays blocked above.
+!play/jka/demo/assets0.pk3
 **/*.sav
 
 # Build trees and local state - large, machine-specific, and rebuilt in CI anyway.

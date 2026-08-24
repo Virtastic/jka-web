@@ -103,4 +103,7 @@ jobs:
           # Indexable posture (uniform with ja2-web): noindex must be GONE, and html must be no-store.
           if grep -qi '^x-robots-tag' /tmp/h; then echo "FATAL: X-Robots-Tag still present"; exit 1; fi
           grep -qi '^cache-control: *no-store' /tmp/h || { echo "FATAL: missing Cache-Control no-store on /"; exit 1; }
+          # The free demo pak must be served: the launcher's "Play the demo" card depends on it.
+          E -f -I https://jka.virtastic.app/demo/assets0.pk3 | grep -i '^content-length' \
+            || { echo "FATAL: demo/assets0.pk3 not served"; exit 1; }
           echo "edge health OK"

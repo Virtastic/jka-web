@@ -7,6 +7,8 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-24
+
 ### Changed
 
 - The loading overlay now uses the **same palette as the launcher and the rest of the Virtastic
@@ -14,9 +16,27 @@ This project uses [Semantic Versioning](https://semver.org/).
   ember wash. It previously ran a warmer bronze/amber palette of its own, so the launcher and
   the game page did not look like the same product. Structure was already identical; this is a
   palette change only.
+- The launcher and game page are now **uniform with the rest of the Virtastic set**: the tab
+  title and heading are just the game name, the subtitle uses the shared phrasing, and the tab
+  title is locked so the engine's own `SDL_SetWindowTitle` cannot overwrite it mid-game.
+- The deployment is now **indexable**: the `noindex` preview posture (header, meta tag and the
+  deny-all `robots.txt`) is gone, HTML is served `no-store`, and the health check asserts the
+  new posture rather than the old one.
 
 ### Added
 
+- **Docker build that works from a clean clone.** `docker build -t jka-web .` now compiles the
+  engine from source and serves it; `docker compose up` does the same on :8080. Previously the
+  only Dockerfile packaged gitignored build products, so a fresh clone produced an image whose
+  engine 404'd — with no build error to say so. The deploy path keeps its fast packaging build
+  as `--target prebuilt`, which now fails loudly instead of shipping a broken image.
+- **`SELF_HOSTING.md`** — serving contract (COOP/COEP), worked nginx and Caddy configs, how to
+  serve the free demo pak, the retail-data caveat, and licensing notes for hosts.
+- **`CODE_OF_CONDUCT.md`**, issue templates and a PR checklist.
+- CI (`ci.yml`) building the engine on a GitHub-hosted runner for every pull request, plus
+  hygiene gates asserting no game data is tracked and no internal infrastructure detail creeps
+  back in. A release workflow (`release.yml`) publishes the corresponding-source archive, a
+  runnable bundle and a GHCR image for `v*` tags.
 - **Attio CRM capture** in the Cloud Locker (`cloud/attio.mjs`). On sign-in the backend
   asserts a person record (email + display name) in the operator's Attio workspace, keyed on
   the email so repeats update rather than duplicate. Fired and not awaited, so sign-in can
@@ -27,6 +47,21 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The free demo pak was not being served in production.** `.dockerignore`'s blanket
+  `play/*/demo/` and `**/*.pk3` rules — written to keep *retail* data out of images — also
+  stripped the freely-redistributable demo pak, so the site's "Play the demo" card booted an
+  engine whose data fetch 404'd. The demo pak is now excepted, and the deploy health check
+  asserts it is served so this cannot regress silently.
+- The deploy staged build products with `rsync --delete`, which replaced the whole `play/jka/`
+  directory — including the committed `index.html` — with whatever stale copy sat in the
+  staging dir, silently reverting the launcher on every deploy. HTML is now excluded from the
+  overlay and always comes from the checkout.
+- **The Cloud Locker rejected every legitimate upload** whenever the editions manifest was
+  absent: `DATA_EXT_OK`'s fallback was carried over from ja2-web and listed JA2's extensions
+  with no `.pk3` at all.
+- Documentation that contradicted the shipped code: `NOTICE.md` and this changelog claimed Jedi
+  Academy has no freely redistributable demo mission. That was wrong when written — the game page
+  has booted the demo gamedir since the first commit.
 - `cloud/test-attio.mjs` exited 127 on Windows despite every check passing — it forced
   `process.exit()` while a socket from the deliberate connection-refused probe was still
   unwinding, tripping a libuv assertion. Any CI gate would have read a green test as a

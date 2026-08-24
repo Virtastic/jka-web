@@ -1,0 +1,63 @@
+name: ci
+
+# Builds the engine from source on a GitHub-hosted runner and asserts the repo stays clean.
+# Deliberately NOT on the self-hosted deploy box: this runs for pull requests from forks once
+# the repo is public, so it must never touch private infrastructure.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container: emscripten/emsdk:6.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build engine + game module
+        run: |
+          bash shared/wasm-build/build-jka.sh
+          bash shared/wasm-build/build-jka-modules.sh
+      - name: No compiler errors
+        run: |
+          echo "engine errs: $(wc -c < build-jka/build.errs) bytes"
+          echo "module errs: $(wc -c < build-jka/modules/build.errs) bytes"
+          test ! -s build-jka/build.errs
+          test ! -s build-jka/modules/build.errs
+      - name: Artifacts exist and are non-trivial
+        run: |
+          ls -la play/jka/jka.js play/jka/jka.wasm play/jka/qagame.wasm
+          # a silent link failure once produced a 375-byte qagame.wasm stub
+          test "$(stat -c%s play/jka/qagame.wasm)" -gt 262144
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine
+          path: |
+            play/jka/jka.js
+            play/jka/jka.wasm
+            play/jka/qagame.wasm
+          retention-days: 7
+
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No game data tracked
+        run: |
+          if git ls-files | grep -E '\.(pk3|sav)$'; then
+            echo "FATAL: game data is tracked"; exit 1
+          fi
+          echo "ok: no .pk3/.sav tracked"
+      - name: No internal infrastructure detail
+        run: |
+          # The engineering log quotes historical sessions; the pristine drop is Raven's.
+          if git grep -nI -E '192\.168\.1\.(130|131)|user@|jenkins_home/\.ssh/(id_ed25519|jka-deploy)'                -- . ':!games/' ':!docs/WASM_ADAPTATIONS.md'; then
+            echo "FATAL: internal infrastructure reference reintroduced"; exit 1
+          fi
+          echo "ok: no lab hosts, users or key paths"

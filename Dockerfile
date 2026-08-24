@@ -73,6 +73,10 @@ LABEL org.opencontainers.image.title="jka-web" \
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
 # Static pages from context: a fast runtime-only rebuild when they change.
 COPY play/jka/index.html play/jka/launcher.html /usr/share/nginx/html/
+# og.png is what the OG/Twitter tags in both pages point at. The prebuilt target gets it
+# from the wholesale play/jka/ copy; this target copies file by file, so name it here too
+# or a locally built container advertises a social card that 404s.
+COPY play/jka/og.png /usr/share/nginx/html/
 # Built engine + game module from the builder stage.
 COPY --from=builder /src/play/jka/jka.js      /usr/share/nginx/html/
 COPY --from=builder /src/play/jka/jka.wasm    /usr/share/nginx/html/

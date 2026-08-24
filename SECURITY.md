@@ -32,7 +32,6 @@ acknowledgement; if the issue is confirmed, the fix and the advisory are publish
 
 ## Notes for reviewers
 
-`docs/SECURITY.md` holds a written pre-publication audit — secret scanning across history,
-third-party binary review, and the data-handling posture. `THIRD-PARTY-LICENSES.md` records which
+`THIRD-PARTY-LICENSES.md` records which
 third-party components are actually compiled into the WebAssembly binary, which is usually the first
 question when triaging a CVE in a bundled library.

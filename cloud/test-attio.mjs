@@ -28,18 +28,18 @@ ok('no API key: returns null and sends nothing',
 ok('no email: sends nothing', attioCapture({ apiKey: 'k', baseUrl }, { name: 'x' }) === null && seen.length === 0);
 
 // 3. With a key: one assert, keyed on email so repeats update rather than duplicate.
-const sent = await attioCapture({ apiKey: 'secret-key', baseUrl }, person);
+const sent = await attioCapture({ apiKey: 'test-api-key-not-real', baseUrl }, person);
 const r = seen[0] || {};
 ok('sends exactly one request', seen.length === 1);
 ok('PUT asserts on email_addresses', r.method === 'PUT' && String(r.url).includes('matching_attribute=email_addresses'));
-ok('bearer auth', r.auth === 'Bearer secret-key');
+ok('bearer auth', r.auth === 'Bearer test-api-key-not-real');
 ok('carries the email', r.body?.data?.values?.email_addresses?.[0]?.email_address === 'player@example.com');
 ok('carries the display name', r.body?.data?.values?.name?.[0]?.full_name === 'Player One');
 ok('only standard attributes', Object.keys(r.body?.data?.values || {}).every((k) => k === 'email_addresses' || k === 'name'));
 ok('reports success', sent === true);
 
 // 4. Repeat is the same assert (idempotent), which is what lets us skip a durable outbox.
-await attioCapture({ apiKey: 'secret-key', baseUrl }, person);
+await attioCapture({ apiKey: 'test-api-key-not-real', baseUrl }, person);
 ok('repeat sends the same assert, not a duplicate shape',
   JSON.stringify(seen[1].body) === JSON.stringify(seen[0].body));
 

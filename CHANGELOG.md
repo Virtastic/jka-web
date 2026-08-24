@@ -91,8 +91,8 @@ side module does not, and each of these was a real, measured failure:
 ### Browser shell
 
 - `launcher.html` — choose where game data comes from: Cloud Locker, data hosted by the site,
-  or your own install via the folder picker. (Jedi Academy has no freely-redistributable demo
-  mission, so unlike jk2-web there is no no-data route.)
+  or your own install via the folder picker. The game page also takes the official free demo
+  mission as a no-data route, the same as jk2-web.
 - `index.html` — the game page, with loading progress and an in-page console ring.
 - Optional Cloud Locker backend (`cloud/`) — OAuth sign-in, then game data and saves in S3 or on
   local disk. Uploads are checked against an allowlist of known-genuine archives, so the locker

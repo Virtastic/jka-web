@@ -15,6 +15,15 @@ Every browser adaptation is a reviewable commit on top of the pristine import co
 `git diff <import> -- games/<game>` is the complete, auditable port. No code is copied from
 iortcw / OpenJK / ET:Legacy — those are read for understanding only.
 
+## Scope of this log
+
+This log was written while several idTech3 ports were developed side by side, and entries that
+mention RTCW, Wolf:ET or the sibling Jedi Knight title are kept **verbatim** rather than edited
+out: the findings were genuinely shared, and CONTRIBUTING asks that a published theory be
+retracted in place rather than quietly deleted. Only the Jedi Academy engine is built in this
+repository — see `games/jka/`. Where a table below spans several games, treat the other rows as
+the historical context the measurement was taken in, not as code that ships here.
+
 ## Toolchain
 
 | | |
@@ -26,7 +35,7 @@ iortcw / OpenJK / ET:Legacy — those are read for understanding only.
 | CPU paths | `id386=0` — no x86 inline asm under wasm |
 | Flags source of truth | `shared/wasm-build/env.sh` |
 
-## Where the five games actually stand
+## Where the ports stood (cross-project status at the time)
 
 | Game | Links | Boots | Renders | Playable | Data used |
 |---|---|---|---|---|---|
@@ -5476,10 +5485,13 @@ Ubuntu builder, from a FRESH checkout) exposed three bugs that a dev box structu
 three are fixed in the `build-*.sh` scripts (our tooling — no pristine source touched):
 
 1. **CRLF before the `.cpp` filter → empty/failed source list.** The `.dsp`/`.vcproj` are pristine
-   CRLF files. The list-regeneration pipeline ran `grep -iE '\.(cpp|c)$'` *before* `tr -d ''`, so
-   every path was `"...cpp"`, the `$` anchor never matched, grep returned "no match" (exit 1), and
+   CRLF files. The list-regeneration pipeline ran `grep -iE '\.(cpp|c)$'` *before* `tr -d '
+'`, so
+   every path was `"...cpp
+"`, the `$` anchor never matched, grep returned "no match" (exit 1), and
    `set -o pipefail` aborted the build — OR, in the module script, produced an empty list. A cached
-   list hid it on dev boxes. Fixed by moving `tr -d ''` ahead of the filter (engine + module).
+   list hid it on dev boxes. Fixed by moving `tr -d '
+'` ahead of the filter (engine + module).
 
 2. **`.dsp`/`.vcproj` filename case ≠ on-disk case.** The project files, authored on Windows, list
    `mp3code/csbtL3.c`, `mp3code/cupL1.c`, `renderer/MatComp.c` (and for jk2 `ghoul2/G2_*.cpp`,

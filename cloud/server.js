@@ -68,7 +68,10 @@ const MAX_TOTAL_BYTES = num('MAX_TOTAL_BYTES', 100 * 1024 * 1024 * 1024);// whol
 // hand-listed: a guessed list silently rejected the 109 .jsd files in a real install's TILECACHE as
 // "bad path" while the very same files were on the known-file list. The literal is only the fallback
 // for when the manifest is missing (VERIFY_DATA off / file absent).
-let DATA_EXT_OK = /\.(slf|dat|edt|jsd|gap|bin|sti|npc|wav|lua|json|txt|ini|xml|mp3|ogg|pcx|tga|bmp|dds|emi|dlg)$/i;
+// NB: this list was carried over from ja2-web and listed JA2's extensions (.slf/.edt/.jsd/...)
+// with no .pk3 at all, so with the manifest absent the locker rejected every legitimate
+// Jedi Academy upload. idTech3 ships its data as .pk3 archives; that is the entry that matters.
+let DATA_EXT_OK = /\.(pk3|cfg|dat|bin|txt|shader|bsp|md3|roq|wav|mp3|ogg|tga|jpg|jpeg|png|bmp|dds)$/i;
 
 // ---- "Is this actually JKA data?" ---------------------------------------------------------------
 // Two tiers, because Jedi Knight: Jedi Academy shipped in many builds while no public hash list exists for them

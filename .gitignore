@@ -45,3 +45,8 @@ shared/web/.env
 
 # CI: infra-specific config (hosts, key paths) — never in a public repo
 ci/jenkins/config.env
+
+# Savegames are user data derived from a retail install — never ours to publish.
+*.sav
+play/*/saves/
+idt3-full.log

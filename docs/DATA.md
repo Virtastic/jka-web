@@ -6,27 +6,15 @@ assets). Each game loads its `.pk3` archives from `play/<game>/<gamedir>/`. The 
 each `play/<game>/index.html` auto-discovers and loads **all** of them — so the *same* code path
 serves the tiny free demo and the full retail install. Drop paks in, reload, done.
 
-## Where each game's paks go
+## Where the paks go
 
 | Game | Port | Data dir | Retail paks (typical) | Run |
 |------|------|----------|-----------------------|-----|
-| RTCW-SP | 8790 | `play/rtcw/main/` | `pak0.pk3` (+ `sp_pak1..4.pk3`) | `python3 shared/web/server.py rtcw` |
-| RTCW-MP | 8791 | `play/rtcwmp/main/` | `mp_pak0..3.pk3`, `pak0.pk3` | `python3 shared/web/server.py rtcwmp` |
-| Wolf:ET | 8792 | `play/wolfet/etmain/` | `pak0..2.pk3`, `mp_bin.pk3` (freely redistributable) | `python3 shared/web/server.py wolfet` |
-| JK2 | 8793 | `play/jk2/base/` (retail) · `play/jk2/demo/` (demo) | `assets0..2.pk3` | `python3 shared/web/server.py jk2` |
 | JKA | 8794 | `play/jka/base/` (retail) · `play/jka/demo/` (demo) | `assets0..3.pk3` | `python3 shared/web/server.py jka` |
 
 Then open `http://localhost:<port>/` (append `?args=+devmap <map>` to jump straight into a map).
 
-## RTCW-SP / RTCW-MP / Wolf:ET — just drop paks in
-
-1. Copy your retail `.pk3` files into the data dir above (e.g. RTCW-SP retail `pak0.pk3` →
-   `play/rtcw/main/`). Leave or replace the demo pak; the loader takes whatever is there.
-2. Restart that game's server (so `/__paks` re-scans) and reload the page.
-
-That's it — no filename list to edit. Verified end-to-end on the demo/free data for all three.
-
-## JK2 / JKA — demo checksum vs retail
+## Demo checksum vs retail
 
 These Raven engines gate demo vs retail themselves, in `FS_SetRestrictions()`
 (`qcommon/files_pc.cpp`):

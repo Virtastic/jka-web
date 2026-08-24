@@ -20,7 +20,7 @@ console.log(`${Object.keys(editions.files).length} known paths, ${bad.length} re
 if (bad.length) { bad.slice(0, 15).forEach((b) => console.log('  REJECTED ' + b)); }
 
 // And the gate must still refuse things that are not game data.
-const mustFail = ['payload.exe', 'notes.pdf', 'movie.mkv', '../../etc/passwd', 'a\\b.slf', '.hidden.slf'];
+const mustFail = ['payload.exe', 'notes.pdf', 'movie.mkv', '../../etc/passwd', 'a\\b.pk3', '.hidden.pk3'];
 const leaks = mustFail.filter((p) => safeRelPath(p, { requireDataExt: true }));
 leaks.forEach((l) => console.log('  ACCEPTED (should not be) ' + l));
 

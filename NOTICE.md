@@ -31,8 +31,8 @@ GAME DATA IS NOT INCLUDED
 
 No Jedi Academy game assets are contained in, or distributed by, this repository. The
 retail archives (assets0.pk3 and friends) are commercial content and are not
-redistributable. To play you must supply your own legally-obtained copy, There is no freely-redistributable demo
-mission for Jedi Academy.
+redistributable. To play you must supply your own legally-obtained copy, or use the
+official free demo mission.
 
 The .gitignore is written so that game data cannot be committed by accident, and the
 published history has been checked to confirm none ever was.

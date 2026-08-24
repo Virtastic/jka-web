@@ -29,22 +29,22 @@ echo "==> Cloud Locker abuse suite (uid=$UID_A, limits 1MB/file 3MB/acct 5 files
 
 # --- unauthenticated access -------------------------------------------------------------------
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/saves")" = 401 ] && pass "anonymous read is 401" || fail "anon read" "not rejected"
-[ "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data x "$B/api/blob/users/$UID_A/data/x.slf")" = 401 ] \
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X PUT --data x "$B/api/blob/users/$UID_A/data/x.pk3")" = 401 ] \
   && pass "anonymous write is 401" || fail "anon write" "not rejected"
 
 # --- someone else's data ------------------------------------------------------------------------
-[ "$(code -X PUT --data x "$B/api/blob/users/victim/data/x.slf")" = 403 ] && pass "write to another uid is 403" || fail "cross-user write" "allowed!"
-[ "$(code "$B/api/blob/users/victim/data/x.slf")" = 403 ] && pass "read from another uid is 403" || fail "cross-user read" "allowed!"
+[ "$(code -X PUT --data x "$B/api/blob/users/victim/data/x.pk3")" = 403 ] && pass "write to another uid is 403" || fail "cross-user write" "allowed!"
+[ "$(code "$B/api/blob/users/victim/data/x.pk3")" = 403 ] && pass "read from another uid is 403" || fail "cross-user read" "allowed!"
 
 # --- path traversal / weird paths ---------------------------------------------------------------
-for p in "../../etc/passwd" "users/$UID_A/../../etc/passwd" "users/$UID_A/data/../../../x.slf"; do
+for p in "../../etc/passwd" "users/$UID_A/../../etc/passwd" "users/$UID_A/data/../../../x.pk3"; do
   c=$(code -X PUT --data x "$B/api/blob/$p")
   [ "$c" = 403 ] || [ "$c" = 400 ] || [ "$c" = 404 ] || fail "traversal $p" "got $c"
 done
 pass "path traversal rejected"
 c=$(jsonp /api/data/presign '{"path":"../../../etc/passwd","size":10}' | grep -c 'bad path'); [ "$c" = 1 ] \
   && pass "presign rejects traversal" || fail "presign traversal" "accepted"
-c=$(jsonp /api/data/presign '{"path":"..\\..\\windows\\x.slf","size":10}' | grep -c 'bad path'); [ "$c" = 1 ] \
+c=$(jsonp /api/data/presign '{"path":"..\\..\\windows\\x.pk3","size":10}' | grep -c 'bad path'); [ "$c" = 1 ] \
   && pass "presign rejects backslash paths" || fail "backslash path" "accepted"
 
 # --- file-type gate: the locker is not a general file host --------------------------------------
@@ -52,32 +52,32 @@ c=$(jsonp /api/data/presign '{"path":"payload.exe","size":10}' | grep -c 'bad pa
   && pass "non-game extension rejected (.exe)" || fail "extension gate" ".exe accepted"
 
 # --- per-file size cap --------------------------------------------------------------------------
-c=$(jsonp /api/data/presign '{"path":"big.slf","size":99999999}' | grep -c 'too large'); [ "$c" = 1 ] \
+c=$(jsonp /api/data/presign '{"path":"big.pk3","size":99999999}' | grep -c 'too large'); [ "$c" = 1 ] \
   && pass "oversized presign rejected (per-file cap)" || fail "per-file cap" "not enforced"
 
 # --- oversized BODY with honest and with LYING Content-Length -----------------------------------
 head -c 2000000 /dev/zero > "$TMP/2mb.bin"
-U=$(jsonp /api/data/presign '{"path":"ok.slf","size":1000}' | sed 's/.*"url":"//;s/".*//')
+U=$(jsonp /api/data/presign '{"path":"ok.pk3","size":1000}' | sed 's/.*"url":"//;s/".*//')
 [ "$(code -X PUT --data-binary @"$TMP/2mb.bin" "$B$U")" = 413 ] && pass "2 MB body rejected (413)" || fail "oversized body" "accepted"
 # Lying: declare 100 bytes, send 2 MB chunked. The stream guard must stop it regardless.
 c=$(curl -s -o /dev/null -w '%{http_code}' -b "$J" -X PUT -H 'Transfer-Encoding: chunked' \
       --data-binary @"$TMP/2mb.bin" "$B$U")
 [ "$c" = 413 ] && pass "chunked oversized body rejected (no Content-Length to trust)" || fail "chunked upload" "got $c"
-[ -f "$TMP/data/users/$UID_A/data/ok.slf" ] && fail "partial file" "oversized upload left a file behind" || pass "no partial file left on disk"
+[ -f "$TMP/data/users/$UID_A/data/ok.pk3" ] && fail "partial file" "oversized upload left a file behind" || pass "no partial file left on disk"
 
 # --- chunked upload (the Cloudflare >100 MB workaround): assembly, ordering, and the total cap ---
 head -c 600000 /dev/zero > "$TMP/chunkA.bin"; head -c 400000 /dev/zero > "$TMP/chunkB.bin"
-U=$(jsonp /api/data/presign '{"path":"chunky.slf","size":1000000}' | sed 's/.*"url":"//;s/".*//')
+U=$(jsonp /api/data/presign '{"path":"chunky.pk3","size":1000000}' | sed 's/.*"url":"//;s/".*//')
 c=$(code -X PUT --data-binary @"$TMP/chunkA.bin" -H 'x-jka-chunk-offset: 0' -H 'x-jka-total-size: 1000000' "$B$U")
 [ "$c" = 200 ] && pass "chunk 1 accepted" || fail "chunk 1" "got $c"
-[ -f "$TMP/data/users/$UID_A/data/chunky.slf" ] && fail "chunk visibility" "partial visible as final file" \
+[ -f "$TMP/data/users/$UID_A/data/chunky.pk3" ] && fail "chunk visibility" "partial visible as final file" \
   || pass "partial upload not visible as the final file"
 # Out-of-order chunk must 409 (wrong offset), not corrupt the partial.
 c=$(code -X PUT --data-binary @"$TMP/chunkB.bin" -H 'x-jka-chunk-offset: 999' -H 'x-jka-total-size: 1000000' "$B$U")
 [ "$c" = 409 ] && pass "out-of-order chunk rejected (409)" || fail "chunk ordering" "got $c"
 c=$(code -X PUT --data-binary @"$TMP/chunkB.bin" -H 'x-jka-chunk-offset: 600000' -H 'x-jka-total-size: 1000000' "$B$U")
 [ "$c" = 200 ] && pass "final chunk accepted" || fail "final chunk" "got $c"
-sz=$(stat -c %s "$TMP/data/users/$UID_A/data/chunky.slf" 2>/dev/null || stat -f %z "$TMP/data/users/$UID_A/data/chunky.slf" 2>/dev/null)
+sz=$(stat -c %s "$TMP/data/users/$UID_A/data/chunky.pk3" 2>/dev/null || stat -f %z "$TMP/data/users/$UID_A/data/chunky.pk3" 2>/dev/null)
 [ "$sz" = 1000000 ] && pass "chunks assembled to the full file" || fail "chunk assembly" "size $sz"
 curl -s -o /dev/null -b "$J" -X DELETE "$B$U"   # clean up before the quota test below
 # A chunked total over the per-file cap must be refused up front.
@@ -88,7 +88,7 @@ c=$(code -X PUT --data-binary @"$TMP/chunkA.bin" -H 'x-jka-chunk-offset: 0' -H '
 head -c 1000000 /dev/zero > "$TMP/1mb.bin"
 okc=0; rej=0
 for i in 1 2 3 4 5 6; do
-  U=$(jsonp /api/data/presign "{\"path\":\"f$i.slf\",\"size\":1000000}" | sed 's/.*"url":"//;s/".*//')
+  U=$(jsonp /api/data/presign "{\"path\":\"f$i.pk3\",\"size\":1000000}" | sed 's/.*"url":"//;s/".*//')
   case "$U" in /api/blob/*) c=$(code -X PUT --data-binary @"$TMP/1mb.bin" "$B$U"); [ "$c" = 200 ] && okc=$((okc+1)) || rej=$((rej+1)) ;; *) rej=$((rej+1)) ;; esac
 done
 [ "$okc" -le 3 ] && pass "account quota enforced (stored $okc of 6 x 1 MB, rest refused)" \
@@ -99,14 +99,14 @@ cnt=$(find "$TMP/data/users/$UID_A" -type f 2>/dev/null | wc -l | tr -d ' ')
 [ "$cnt" -le 6 ] && pass "file count bounded ($cnt files on disk)" || fail "file count" "$cnt files"
 
 # --- manifest cannot be used to fake unlimited storage ------------------------------------------
-big='{"manifest":{"files":['; for i in $(seq 1 50); do big="$big{\"path\":\"m$i.slf\",\"size\":999999999},"; done
+big='{"manifest":{"files":['; for i in $(seq 1 50); do big="$big{\"path\":\"m$i.pk3\",\"size\":999999999},"; done
 big="${big%,}]}}"
 c=$(jsonp /api/data/presign "$big" | grep -cE 'over quota|bad manifest entry|too many files'); [ "$c" = 1 ] \
   && pass "hostile manifest rejected (count/size/quota validated)" || fail "manifest validation" "accepted"
 # ...and one that is within the count/per-file caps but busts the account total.
-c=$(jsonp /api/data/presign '{"manifest":{"files":[{"path":"a.slf","size":1000000},{"path":"b.slf","size":1000000},{"path":"c.slf","size":1000000},{"path":"d.slf","size":1000000}]}}' | grep -c 'over quota')
+c=$(jsonp /api/data/presign '{"manifest":{"files":[{"path":"a.pk3","size":1000000},{"path":"b.pk3","size":1000000},{"path":"c.pk3","size":1000000},{"path":"d.pk3","size":1000000}]}}' | grep -c 'over quota')
 [ "$c" = 1 ] && pass "manifest totalling over the account quota rejected" || fail "manifest quota total" "accepted"
-c=$(jsonp /api/data/presign '{"manifest":{"files":[{"path":"../../../evil.slf","size":1}]}}' | grep -c 'bad manifest entry')
+c=$(jsonp /api/data/presign '{"manifest":{"files":[{"path":"../../../evil.pk3","size":1}]}}' | grep -c 'bad manifest entry')
 [ "$c" = 1 ] && pass "manifest path traversal rejected" || fail "manifest traversal" "accepted"
 
 # --- "is this actually JKA data?" (second instance: verification ON, real-world limits) ---------
@@ -125,19 +125,19 @@ hv=$(curl -s "$B2/api/health" | grep -c '"verifyData":true')
 
 # Policy, two tiers: (1) the client's hash matches a recorded build -> verified; (2) known name and
 # a size within SIZE_TOLERANCE of a recorded size -> accepted as an unrecognised build. Else refused.
-# radarmaps.slf is a real GOG file: 1678333 bytes, md5 20cae0ef3128495f64c58ee5212390a5.
-r=$(v2 '{"path":"radarmaps.slf","size":1678333,"md5":"20cae0ef3128495f64c58ee5212390a5"}')
+# assets2.pk3 is a real retail file: 1116384 bytes, md5 961ad372c3cd73075d70ba71a497b89e (see cloud/*-editions.json).
+r=$(v2 '{"path":"assets2.pk3","size":1116384,"md5":"961ad372c3cd73075d70ba71a497b89e"}')
 echo "$r" | grep -q '"verified":true' && pass "tier 1: exact hash match is marked verified" || fail "tier 1" "not verified: $r"
-r=$(v2 '{"path":"radarmaps.slf","size":1700000}')
+r=$(v2 '{"path":"assets2.pk3","size":1131000}')
 echo "$r" | grep -q '"url"' && echo "$r" | grep -q '"verified":false' \
   && pass "tier 2: known name, size +1.3% accepted as an unrecognised build" || fail "tier 2" "$r"
-r=$(v2 '{"path":"radarmaps.slf","size":1678333,"md5":"'"$(printf 'f%.0s' $(seq 1 32))"'"}')
+r=$(v2 '{"path":"assets2.pk3","size":1116384,"md5":"'"$(printf 'f%.0s' $(seq 1 32))"'"}')
 echo "$r" | grep -q '"verified":false' && pass "a wrong hash falls through to the size tier, never upgrades" || fail "hash trust" "$r"
-r=$(v2 '{"path":"radarmaps.slf","size":9000000}')
+r=$(v2 '{"path":"assets2.pk3","size":9000000}')
 echo "$r" | grep -q 'not a recognized' && pass "size wildly outside tolerance is refused" || fail "tolerance bound" "$r"
-c=$(v2 '{"path":"totally-made-up.slf","size":1678333}' | grep -c 'not a recognized'); [ "$c" = 1 ] \
+c=$(v2 '{"path":"totally-made-up.pk3","size":1116384}' | grep -c 'not a recognized'); [ "$c" = 1 ] \
   && pass "unknown filename refused (no edition ships it)" || fail "unknown file" "accepted"
-c=$(v2 '{"manifest":{"files":[{"path":"pirate-movie.slf","size":1678333}]}}' | grep -c 'not a recognized')
+c=$(v2 '{"manifest":{"files":[{"path":"pirate-movie.pk3","size":1116384}]}}' | grep -c 'not a recognized')
 [ "$c" = 1 ] && pass "manifest listing a non-JKA filename refused" || fail "manifest allowlist" "accepted"
 # The variant recorded from a confirmed-genuine install must verify exactly (see add-observed.mjs).
 r=$(v2 '{"path":"NPC_SPEECH.SLF","size":182015718,"md5":"420647ea51e219a6a734bad331e44774"}')

@@ -23,7 +23,7 @@ jobs:
     runs-on: [self-hosted, ovh, virtastic]
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Clean stale build output
         # The workspace persists between runs on a self-hosted runner, so a previous build's
         # artefacts would otherwise make a broken compile look like it succeeded.
@@ -58,7 +58,7 @@ jobs:
     runs-on: [self-hosted, ovh, virtastic]
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: No game data tracked
         run: |
           if git ls-files | grep -E '\.(pk3|sav)$'; then

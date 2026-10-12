@@ -7,10 +7,12 @@ jka.virtastic.app {
 	tls /certs/virtastic.crt /certs/virtastic.key
 	# virtastic.app runs the game inside its Virtastic Navigator window (an iframe), so this vhost
 	# lets that one site frame it: sec_headers' X-Frame-Options SAMEORIGIN goes, and frame-ancestors
-	# allows virtastic.app (and www) only. The delete sits BEFORE the import: deferred header ops run
-	# innermost first, so the outermost (this) runs last and wins (measured on freecad.caddy).
+	# allows virtastic.app (and www) only, plus virtastic-web's local previews on this machine's own
+	# localhost (4321 dev server, 8940 built site) so the site can be tried before it ships. The
+	# delete sits BEFORE the import: deferred header ops run innermost first, so the outermost
+	# (this) runs last and wins (measured on freecad.caddy).
 	header -X-Frame-Options
-	header Content-Security-Policy "frame-ancestors 'self' https://virtastic.app https://www.virtastic.app"
+	header Content-Security-Policy "frame-ancestors 'self' https://virtastic.app https://www.virtastic.app http://localhost:4321 http://localhost:8940"
 	import sec_headers
 	reverse_proxy jka:80
 }

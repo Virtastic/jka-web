@@ -914,6 +914,10 @@ async function __hasProductId(files){
 
   if (__argParam) { __ready.then(function(){ boot(Module.arguments, window.__IDT3_NET_RELAY || null); }); return; }  // ?args= deep link
 
+  // ?src=demo starts the free demo straight away, as if its card were clicked: launcher.html's
+  // demo link and virtastic.app's Play button open the game this way.
+  if (__q.get('src') === 'demo') { __ready.then(function(){ boot([]); }); return; }
+
   card('card-demo', function(){ __ready.then(function(){ boot([]); }); });
   var ownInput = document.getElementById('own-files');
   card('card-own', function(){ ownInput.click(); });

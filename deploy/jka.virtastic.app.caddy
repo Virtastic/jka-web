@@ -5,6 +5,12 @@
 # through. This vhost must NOT duplicate COOP/COEP (a duplicate breaks crossOriginIsolated).
 jka.virtastic.app {
 	tls /certs/virtastic.crt /certs/virtastic.key
+	# virtastic.app runs the game inside its Virtastic Navigator window (an iframe), so this vhost
+	# lets that one site frame it: sec_headers' X-Frame-Options SAMEORIGIN goes, and frame-ancestors
+	# allows virtastic.app (and www) only. The delete sits BEFORE the import: deferred header ops run
+	# innermost first, so the outermost (this) runs last and wins (measured on freecad.caddy).
+	header -X-Frame-Options
+	header Content-Security-Policy "frame-ancestors 'self' https://virtastic.app https://www.virtastic.app"
 	import sec_headers
 	reverse_proxy jka:80
 }
